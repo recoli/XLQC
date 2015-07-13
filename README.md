@@ -1,2 +1,2 @@
-# MyQC
+# XLQC
 Experimental code
