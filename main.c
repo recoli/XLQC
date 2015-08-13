@@ -94,24 +94,6 @@ int main(int argc, char* argv[])
 	}
 
 
-	//====== write enuc.dat ========
-
-	// nuclear repulsion energy
-	double enuc = 0.0;
-	int ata, atb;
-	for (ata = 0; ata < natoms; ++ ata)
-	{
-		for (atb = ata + 1; atb < natoms; ++ atb)
-		{
-			double dx = atom_pos[ata][0] - atom_pos[atb][0];
-			double dy = atom_pos[ata][1] - atom_pos[atb][1];
-			double dz = atom_pos[ata][2] - atom_pos[atb][2];
-			double dr = sqrt(dx*dx + dy*dy + dz*dz);
-			enuc += atom_nuc_chg[ata] * atom_nuc_chg[atb] / dr;
-		}
-	}
-
-
 #ifdef DEBUG
 	for (ibasis = 0; ibasis < nbasis; ++ ibasis)
 	{
@@ -122,6 +104,23 @@ int main(int argc, char* argv[])
 		}
 	}
 #endif
+
+
+	//====== nuclear repulsion energy ========
+
+	double ene_nucl = 0.0;
+	int ata, atb;
+	for (ata = 0; ata < natoms; ++ ata)
+	{
+		for (atb = ata + 1; atb < natoms; ++ atb)
+		{
+			double dx = atom_pos[ata][0] - atom_pos[atb][0];
+			double dy = atom_pos[ata][1] - atom_pos[atb][1];
+			double dz = atom_pos[ata][2] - atom_pos[atb][2];
+			double dr = sqrt(dx*dx + dy*dy + dz*dz);
+			ene_nucl += atom_nuc_chg[ata] * atom_nuc_chg[atb] / dr;
+		}
+	}
 
 
 	//====== one- and two-electron integrals ========
@@ -219,7 +218,6 @@ int main(int argc, char* argv[])
 	int n_occ = n_elec / 2;
 
 
-	double ene_nucl = enuc;
 
 	fprintf(stdout, "ENUC= %-22.12f\n", ene_nucl);
 	fprintf(stdout, "NBASIS= %-18d\n", nbasis);
@@ -256,13 +254,12 @@ int main(int argc, char* argv[])
 	gsl_matrix_set_zero(D_prev);
 	ene_prev = 0.0;
 
-	fprintf(stdout, "%5s %22s %22s %22s\n", "Iter", "E_total", "E_elec", "delta_E");
+	fprintf(stdout, "%5s %22s %22s %22s %22s\n", 
+			"Iter", "E_total", "E_elec", "delta_E", "rms_D");
 
 	int iter = 0;
 	while(1)
 	{
-		iter++;
-
 		// SCF procedure:
 		// Form new Fock matrix
 		// F' = S^-1/2 * F * S^-1/2
@@ -287,24 +284,33 @@ int main(int argc, char* argv[])
 #endif
 
 
-		double deltaE = ene_total - ene_prev;
-		fprintf(stdout, "%5d %22.12f %22.12f %22.12f\n", 
-				iter, ene_total, ene_elec, deltaE);
-
 		// check convergence
-		double deltaD = 0.0;
+		double delta_E = ene_total - ene_prev;
+
+		double rms_D = 0.0;
 		int mu, nu;
 		for (mu = 0; mu < nbasis; ++ mu)
 		{
 			for (nu = 0; nu < nbasis; ++ nu)
 			{
 				double dd = gsl_matrix_get(D, mu, nu) - gsl_matrix_get(D_prev, mu, nu);
-				deltaD += dd * dd;
+				rms_D += dd * dd;
 			}
 		}
-		deltaD = sqrt(deltaD / 4.0);
+		rms_D = sqrt(rms_D / 4.0);
 
-		if (deltaD < 1.0e-8) { break; }
+		if (0 == iter)
+		{
+			fprintf(stdout, "%5d %22.12f %22.12f\n", 
+					iter, ene_total, ene_elec);
+		}
+		else
+		{
+			fprintf(stdout, "%5d %22.12f %22.12f %22.12f %22.12f\n", 
+					iter, ene_total, ene_elec, delta_E, rms_D);
+		}
+
+		if (fabs(delta_E) < 1.0e-12 && rms_D < 1.0e-10) { break; }
 
 		// update energy and density matrix for the next iteration
 		ene_prev = ene_total;
@@ -315,6 +321,9 @@ int main(int argc, char* argv[])
 				gsl_matrix_set(D_prev, mu, nu, gsl_matrix_get(D, mu, nu));
 			}
 		}
+
+		// count iterations
+		++ iter;
 	}
 
 	fprintf(stdout, "SCF converged! E_total = %22.12f\n", ene_total);
