@@ -233,11 +233,11 @@ int main(int argc, char* argv[])
 
 
 #ifdef DEBUG
-	printf("\nS:\n"); my_print_matrix(S);
-	printf("\nT:\n"); my_print_matrix(T);
-	printf("\nV:\n"); my_print_matrix(V);
-	printf("\nH_core:\n"); my_print_matrix(H_core);
-	printf("\nS^-1/2:\n"); my_print_matrix(S_invsqrt);
+	printf("S:\n"); my_print_matrix(S);
+	printf("T:\n"); my_print_matrix(T);
+	printf("V:\n"); my_print_matrix(V);
+	printf("H_core:\n"); my_print_matrix(H_core);
+	printf("S^-1/2:\n"); my_print_matrix(S_invsqrt);
 #endif
 
 
@@ -277,10 +277,9 @@ int main(int argc, char* argv[])
 
 
 #ifdef DEBUG
-		printf("\nG:\n"); my_print_matrix(G);
-		printf("\nF:\n"); my_print_matrix(Fock);
-		printf("\nC:\n"); my_print_matrix(Coef);
-		printf("\nP:\n"); my_print_matrix(D);
+		printf("F:\n"); my_print_matrix(Fock);
+		printf("C:\n"); my_print_matrix(Coef);
+		printf("P:\n"); my_print_matrix(D);
 #endif
 
 

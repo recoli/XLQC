@@ -114,9 +114,6 @@ void Fock_to_Coef(int nbasis, gsl_matrix *Fock, gsl_matrix *S_invsqrt,
 	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, S_invsqrt, Fock, 0.0, prod);
 	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, prod, S_invsqrt, 0.0, Fock_p);
 
-#ifdef DEBUG
-	printf("\nF':\n"); my_print_matrix(Fock_p);
-#endif
 
 	// diagonalization of Fock_p
 	// emo: eigenvalues
@@ -127,19 +124,12 @@ void Fock_to_Coef(int nbasis, gsl_matrix *Fock, gsl_matrix *S_invsqrt,
 	// C = S^-1/2 * C'
 	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, S_invsqrt, Coef_p, 0.0, Coef);
 
-#ifdef DEBUG
-	printf("\nC':\n"); my_print_matrix(Coef_p);
-	printf("\nC:\n"); my_print_matrix(Coef);
-#endif
 
 	gsl_matrix *t1 = gsl_matrix_alloc(nbasis, nbasis);
 	gsl_matrix *t2 = gsl_matrix_alloc(nbasis, nbasis);
 	gsl_blas_dgemm (CblasTrans, CblasNoTrans, 1.0, Coef_p, Fock_p, 0.0, t1);
 	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, t1, Coef_p, 0.0, t2);
 
-#ifdef DEBUG
-	printf("\nC'T F' C':\n"); my_print_matrix(t2);
-#endif
 
 	gsl_matrix_free (prod);
 	gsl_matrix_free (Fock_p);
