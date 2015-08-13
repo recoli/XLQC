@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 
 #include <gsl/gsl_math.h>
@@ -326,6 +327,17 @@ int main(int argc, char* argv[])
 	}
 
 	fprintf(stdout, "SCF converged! E_total = %22.12f\n", ene_total);
+
+
+	fprintf(stdout, "%5s %10s %16s\n", "MO", "State", "Energy");
+	for (ibasis = 0; ibasis < nbasis; ++ ibasis)
+	{
+		char occ[10];
+		if (ibasis < n_occ) { strcpy(occ, "occ."); }
+		else { strcpy(occ, "virt."); }
+		fprintf(stdout, "%5d %10s %16.6f\n",
+				ibasis + 1, occ, gsl_vector_get(emo, ibasis));
+	}
 
 
 	// free arrays for one- and two-electron integral
