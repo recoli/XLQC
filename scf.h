@@ -5,24 +5,6 @@ void my_eigen_symmv(gsl_matrix* data, int DIM,
 // print gsl matrix
 void my_print_matrix(gsl_matrix* A);
 
-// read nuclear repulsion energy
-double get_nucl_ene(void);
- 
-// get number of basis functions
-int get_nbasis(void);
-
-// read overlap integral
-void read_overlap(int nbasis, gsl_matrix *S);
-
-// read kinetic energy integral
-void read_kinetic(int nbasis, gsl_matrix *T);
-
-// read nuclear attraction integral
-void read_potential(int nbasis, gsl_matrix *V);
-
-// read two-electron integrals
-void read_eri(int n_eri, double *ERI);
-
 // get core Hamiltonian
 void sum_H_core(int nbasis, gsl_matrix *H_core, gsl_matrix *T, gsl_matrix *V);
 

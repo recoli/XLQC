@@ -218,8 +218,7 @@ int main(int argc, char* argv[])
 
 	int n_occ = n_elec / 2;
 
-	//double ene_nucl = get_nucl_ene();
-	//int nbasis = get_nbasis();
+
 	double ene_nucl = enuc;
 
 	fprintf(stdout, "ENUC= %-22.12f\n", ene_nucl);
