@@ -1546,7 +1546,7 @@ double Shift(int i, int j, int k, int l, double xij, double xkl){
 }
 
 /* Util functions: */
-/*=========== commented by Xin Li, 2013-07-13 ===========
+/*=========== commented by Xin Li, 2015-07-13 ===========
  * these functions are already in cints.h
 double product_center_1D(double alphaa, double xa, 
 			 double alphab, double xb){

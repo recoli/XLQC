@@ -11,6 +11,7 @@
 
 #include "int_lib/cints.h"
 #include "int_lib/crys.h"
+#include "int_lib/chgp.h"
 #include "basis.h"
 #include "scf.h"
 
@@ -193,11 +194,20 @@ int main(int argc, char* argv[])
 					int ijkl = ij2intindex(ij, kl);
 
 					double eri;
+					/*
 					eri = rys_contr_coulomb(
 						  nprims[a], expon[a], coef[a], norm[a], xbas[a][0], xbas[a][1], xbas[a][2], lmn[a][0], lmn[a][1], lmn[a][2],
 						  nprims[b], expon[b], coef[b], norm[b], xbas[b][0], xbas[b][1], xbas[b][2], lmn[b][0], lmn[b][1], lmn[b][2],
 						  nprims[c], expon[c], coef[c], norm[c], xbas[c][0], xbas[c][1], xbas[c][2], lmn[c][0], lmn[c][1], lmn[c][2],
 						  nprims[d], expon[d], coef[d], norm[d], xbas[d][0], xbas[d][1], xbas[d][2], lmn[d][0], lmn[d][1], lmn[d][2]);
+					*/
+
+					// use HGP for two-electron integrals
+					eri = contr_hrr(
+						  nprims[a], xbas[a][0], xbas[a][1], xbas[a][2], norm[a], lmn[a][0], lmn[a][1], lmn[a][2], expon[a], coef[a],
+						  nprims[b], xbas[b][0], xbas[b][1], xbas[b][2], norm[b], lmn[b][0], lmn[b][1], lmn[b][2], expon[b], coef[b],
+						  nprims[c], xbas[c][0], xbas[c][1], xbas[c][2], norm[c], lmn[c][0], lmn[c][1], lmn[c][2], expon[c], coef[c],
+						  nprims[d], xbas[d][0], xbas[d][1], xbas[d][2], norm[d], lmn[d][0], lmn[d][1], lmn[d][2], expon[d], coef[d]);
 
 					ERI[ijkl] = eri;
 				}
