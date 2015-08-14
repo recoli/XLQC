@@ -40,9 +40,9 @@ double lgamma(double x);
 #endif
 
 #define ITMAX 100
-#define EPS 3.0e-7
+#define EPS 1.0e-9
 #define FPMIN 1.0e-30
-#define SMALL 0.00000001
+#define SMALL 1.0e-11
 
 /*======== commented by Xin Li, 2015-07-13 ===============
 // lgamma not included in ANSI standard and so not available in MSVC

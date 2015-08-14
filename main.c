@@ -458,8 +458,8 @@ int main(int argc, char* argv[])
 
 
 		// convergence criteria
-		if (fabs(delta_E) < 1.0e-12 &&
-			rms_D < 1.0e-10 && delta_DIIS < 1.0e-10) { break; }
+		if (fabs(delta_E) < 1.0e-10 &&
+			rms_D < 1.0e-8 && delta_DIIS < 1.0e-8) { break; }
 
 
 		// update energy and density matrix for the next iteration
