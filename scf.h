@@ -1,9 +1,18 @@
+// copy the content of a matrix
+void mat_mem_cpy(int DIM, double **A, double **B);
+
+// matrix inner product
+double mat_inn_prod(int DIM, double **A, double **B);
+
 // GSL eigen solver for real symmetric matrix
 void my_eigen_symmv(gsl_matrix* data, int DIM,
 	                gsl_vector* eval, gsl_matrix* evec);
 
 // print gsl matrix
 void my_print_matrix(gsl_matrix* A);
+
+// print gsl vector
+void my_print_vector(gsl_vector* x);
 
 // get core Hamiltonian
 void sum_H_core(int nbasis, gsl_matrix *H_core, gsl_matrix *T, gsl_matrix *V);

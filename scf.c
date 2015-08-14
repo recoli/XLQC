@@ -10,6 +10,38 @@
 #include "int_lib/cints.h"
 
 //===============================================
+// copy the content of a matrix
+//===============================================
+void mat_mem_cpy(int DIM, double **A, double **B)
+{
+	int row, col;
+	for (row = 0; row < DIM; ++ row)
+	{
+		for (col = 0; col < DIM; ++ col)
+		{
+			A[row][col] = B[row][col];
+		}
+	}
+}
+
+//===============================================
+// matrix inner product
+//===============================================
+double mat_inn_prod(int DIM, double **A, double **B)
+{
+	double inn_prod = 0.0;
+	int row, col;
+	for (row = 0; row < DIM; ++ row)
+	{
+		for (col = 0; col < DIM; ++ col)
+		{
+			inn_prod += A[row][col] * B[row][col];
+		}
+	}
+	return inn_prod;
+}
+
+//===============================================
 // GSL eigen solver for real symmetric matrix
 //===============================================
 void my_eigen_symmv(gsl_matrix* data, int DIM,
@@ -42,13 +74,25 @@ void my_eigen_symmv(gsl_matrix* data, int DIM,
 void my_print_matrix(gsl_matrix* A)
 {
 	int row, col;
-	for (row=0; row<A[0].size1; row++)
+	for (row=0; row < A->size1; row++)
 	{
-		for (col=0; col<A[0].size2; col++)
+		for (col=0; col < A->size2; col++)
 		{
 			printf("%12.7f", gsl_matrix_get(A, row, col));
 		}
 		printf("\n");
+	}
+}
+
+//===============================
+// print gsl vector
+//===============================
+void my_print_vector(gsl_vector* x)
+{
+	int row;
+	for (row=0; row < x->size; row++)
+	{
+		printf("%12.7f\n", gsl_vector_get(x, row));
 	}
 }
 

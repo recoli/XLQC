@@ -7,6 +7,7 @@
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_matrix.h>
+#include <gsl/gsl_linalg.h>
 
 #include "int_lib/cints.h"
 #include "int_lib/crys.h"
@@ -14,6 +15,7 @@
 #include "scf.h"
 
 #define CART_DIM 3
+#define MAX_DIIS_DIM 6
 
 int main(int argc, char* argv[])
 {
@@ -258,6 +260,33 @@ int main(int argc, char* argv[])
 	fprintf(stdout, "%5s %22s %22s %22s %22s\n", 
 			"Iter", "E_total", "E_elec", "delta_E", "rms_D");
 
+
+
+	// DIIS error and Fock matrices
+	double ***diis_err  = (double ***)my_malloc(sizeof(double **) * MAX_DIIS_DIM);
+	double ***diis_Fock = (double ***)my_malloc(sizeof(double **) * MAX_DIIS_DIM);
+	int idiis;
+	for (idiis = 0; idiis < MAX_DIIS_DIM; ++ idiis)
+	{
+		diis_err[idiis]  = (double **)my_malloc(sizeof(double *) * nbasis);
+		diis_Fock[idiis] = (double **)my_malloc(sizeof(double *) * nbasis);
+		for (ibasis = 0; ibasis < nbasis; ++ ibasis)
+		{
+			diis_err[idiis][ibasis]  = (double *)my_malloc(sizeof(double) * nbasis);
+			diis_Fock[idiis][ibasis] = (double *)my_malloc(sizeof(double) * nbasis);
+		}
+	}
+
+	// DIIS counter
+	int diis_index = 0;
+	int diis_dim = 0;
+
+	// gsl matrices used in DIIS
+	gsl_matrix *prod = gsl_matrix_alloc(nbasis, nbasis);
+	gsl_matrix *FDS  = gsl_matrix_alloc(nbasis, nbasis);
+	gsl_matrix *SDF  = gsl_matrix_alloc(nbasis, nbasis);
+
+
 	int iter = 0;
 	while(1)
 	{
@@ -269,6 +298,101 @@ int main(int argc, char* argv[])
 		// compute new density matrix
 		form_G(nbasis, D_prev, ERI, G);
 		form_Fock(nbasis, H_core, G, Fock);
+
+
+		// start DIIS
+		if (iter > 1)
+		{
+			// dimension of DIIS, e.g. number of error matrices
+			if (diis_dim < MAX_DIIS_DIM) { diis_dim = diis_index + 1; }
+
+			// calculate FDS and SDF, using D_prev, Fock and S
+			gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, Fock, D_prev, 0.0, prod);
+			gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, prod, S, 0.0, FDS);
+
+			gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, S, D_prev, 0.0, prod);
+			gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, prod, Fock, 0.0, SDF);
+
+			// update saved error matrices and Fock matrices
+			int idiis, row, col;
+			for (idiis = diis_dim - 1; idiis >= 1; -- idiis)
+			{
+				mat_mem_cpy(nbasis, diis_err[idiis], diis_err[idiis - 1]);
+				mat_mem_cpy(nbasis, diis_Fock[idiis], diis_Fock[idiis - 1]);
+			}
+
+			// new error matrix: e = FDS - SDF
+			for (row=0; row < nbasis; row++)
+			{
+				for (col=0; col < nbasis; col++)
+				{
+					diis_err[0][row][col] = 
+						gsl_matrix_get(FDS, row, col) - gsl_matrix_get(SDF, row, col);
+					diis_Fock[0][row][col] = gsl_matrix_get(Fock, row, col);
+				}
+			}
+
+			// apply DIIS if there are two or more error matrices
+			if (diis_dim > 1)
+			{
+				// construct B matrix and bb vector; B .dot. cc = bb
+				gsl_matrix *B  = gsl_matrix_alloc(diis_dim + 1, diis_dim + 1);
+				gsl_vector *bb = gsl_vector_alloc(diis_dim + 1);
+
+				for (row = 0; row < diis_dim; ++ row)
+				{
+					for (col = 0; col < diis_dim; ++ col)
+					{
+						gsl_matrix_set (B, row, col,
+								mat_inn_prod(nbasis, diis_err[row], diis_err[col]));
+					}
+				}
+
+				for (idiis = 0; idiis < diis_dim; ++ idiis)
+				{
+					gsl_matrix_set (B, diis_dim, idiis, -1.0);
+					gsl_matrix_set (B, idiis, diis_dim, -1.0);
+					gsl_vector_set (bb, idiis, 0.0);
+				}
+
+				gsl_matrix_set (B, diis_dim, diis_dim, 0.0);
+				gsl_vector_set (bb, diis_dim, -1.0);
+
+				// solve matrix equation; B .dot. cc = bb
+				int ss;
+				gsl_vector *cc = gsl_vector_alloc (diis_dim + 1);
+				gsl_permutation *pp = gsl_permutation_alloc (diis_dim + 1);
+				gsl_linalg_LU_decomp (B, pp, &ss);
+				gsl_linalg_LU_solve (B, pp, bb, cc);
+				gsl_permutation_free (pp);
+
+				// update Fock matrix
+				gsl_matrix_set_zero (Fock);
+				for (idiis = 0; idiis < diis_dim; ++ idiis)
+				{
+					double ci = gsl_vector_get (cc, idiis);
+
+					for (row = 0; row < nbasis; ++ row)
+					{
+						for (col = 0; col < nbasis; ++ col)
+						{
+							double Fab = gsl_matrix_get (Fock, row, col);
+							Fab += ci * diis_Fock[idiis][row][col];
+							gsl_matrix_set (Fock, row, col, Fab);
+						}
+					}
+				}
+
+				// free matrix B and vectors bb, cc
+				gsl_matrix_free(B);
+				gsl_vector_free(bb);
+				gsl_vector_free(cc);
+			}
+
+			// update DIIS counter
+			if (diis_index < MAX_DIIS_DIM - 1) { ++ diis_index; }
+		}
+
 
 		Fock_to_Coef(nbasis, Fock, S_invsqrt, Coef, emo);
 		Coef_to_Dens(nbasis, n_occ, Coef, D);
@@ -314,13 +438,7 @@ int main(int argc, char* argv[])
 
 		// update energy and density matrix for the next iteration
 		ene_prev = ene_total;
-		for (mu = 0; mu < nbasis; ++ mu)
-		{
-			for (nu = 0; nu < nbasis; ++ nu)
-			{
-				gsl_matrix_set(D_prev, mu, nu, gsl_matrix_get(D, mu, nu));
-			}
-		}
+		gsl_matrix_memcpy(D_prev, D);
 
 		// count iterations
 		++ iter;
@@ -338,6 +456,26 @@ int main(int argc, char* argv[])
 		fprintf(stdout, "%5d %10s %16.6f\n",
 				ibasis + 1, occ, gsl_vector_get(emo, ibasis));
 	}
+
+
+	// free DIIS error and Fock matrices
+	for (idiis = 0; idiis < MAX_DIIS_DIM; ++ idiis)
+	{
+		for (ibasis = 0; ibasis < nbasis; ++ ibasis)
+		{
+			free(diis_err[idiis][ibasis]);
+			free(diis_Fock[idiis][ibasis]);
+		}
+		free(diis_err[idiis]);
+		free(diis_Fock[idiis]);
+	}
+	free(diis_err);
+	free(diis_Fock);
+
+	// free intermediate matrices for DIIS
+	gsl_matrix_free(prod);
+	gsl_matrix_free(FDS);
+	gsl_matrix_free(SDF);
 
 
 	// free arrays for one- and two-electron integral
