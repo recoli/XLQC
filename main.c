@@ -221,9 +221,7 @@ int main(int argc, char* argv[])
 	int n_occ = n_elec / 2;
 
 
-
-	fprintf(stdout, "ENUC= %-22.12f\n", ene_nucl);
-	fprintf(stdout, "NBASIS= %-18d\n", nbasis);
+	fprintf(stdout, "Nuclear repulsion= %-22.12f\n", ene_nucl);
 
 
 	// get core Hamiltonian
@@ -258,7 +256,7 @@ int main(int argc, char* argv[])
 	ene_prev = 0.0;
 
 	fprintf(stdout, "%5s %22s %22s %22s %22s\n", 
-			"Iter", "E_total", "E_elec", "delta_E", "rms_D");
+			"Iter", "E_total", "delta_E", "rms_D", "delta_DIIS");
 
 
 
@@ -277,9 +275,11 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	// DIIS counter
+	// DIIS index and dimension
 	int diis_index = 0;
 	int diis_dim = 0;
+
+	double delta_DIIS;
 
 	// gsl matrices used in DIIS
 	gsl_matrix *prod = gsl_matrix_alloc(nbasis, nbasis);
@@ -313,24 +313,22 @@ int main(int argc, char* argv[])
 			gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, S, D_prev, 0.0, prod);
 			gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, prod, Fock, 0.0, SDF);
 
-			// update saved error matrices and Fock matrices
-			int idiis, row, col;
-			for (idiis = diis_dim - 1; idiis >= 1; -- idiis)
-			{
-				mat_mem_cpy(nbasis, diis_err[idiis], diis_err[idiis - 1]);
-				mat_mem_cpy(nbasis, diis_Fock[idiis], diis_Fock[idiis - 1]);
-			}
-
 			// new error matrix: e = FDS - SDF
+			delta_DIIS = 0.0;
+			int row, col;
 			for (row=0; row < nbasis; row++)
 			{
 				for (col=0; col < nbasis; col++)
 				{
-					diis_err[0][row][col] = 
-						gsl_matrix_get(FDS, row, col) - gsl_matrix_get(SDF, row, col);
-					diis_Fock[0][row][col] = gsl_matrix_get(Fock, row, col);
+					double err = gsl_matrix_get(FDS, row, col) - gsl_matrix_get(SDF, row, col);
+
+					diis_err[diis_index][row][col] = err;
+					diis_Fock[diis_index][row][col] = gsl_matrix_get(Fock, row, col);
+
+					delta_DIIS += err * err;
 				}
 			}
+			delta_DIIS = sqrt(delta_DIIS);
 
 			// apply DIIS if there are two or more error matrices
 			if (diis_dim > 1)
@@ -348,6 +346,7 @@ int main(int argc, char* argv[])
 					}
 				}
 
+				int idiis;
 				for (idiis = 0; idiis < diis_dim; ++ idiis)
 				{
 					gsl_matrix_set (B, diis_dim, idiis, -1.0);
@@ -389,8 +388,9 @@ int main(int argc, char* argv[])
 				gsl_vector_free(cc);
 			}
 
-			// update DIIS counter
-			if (diis_index < MAX_DIIS_DIM - 1) { ++ diis_index; }
+			// update DIIS index, e.g. which error matrix to be updated
+			++ diis_index;
+			if (MAX_DIIS_DIM == diis_index) { diis_index = 0; }
 		}
 
 
@@ -421,20 +421,18 @@ int main(int argc, char* argv[])
 				rms_D += dd * dd;
 			}
 		}
-		rms_D = sqrt(rms_D / 4.0);
+		rms_D = sqrt(rms_D);
 
-		if (0 == iter)
-		{
-			fprintf(stdout, "%5d %22.12f %22.12f\n", 
-					iter, ene_total, ene_elec);
-		}
-		else
-		{
-			fprintf(stdout, "%5d %22.12f %22.12f %22.12f %22.12f\n", 
-					iter, ene_total, ene_elec, delta_E, rms_D);
-		}
+		fprintf(stdout, "%5d %22.12f", iter, ene_total);
+		if (iter > 0) { fprintf(stdout, " %22.12f %22.12f", delta_E, rms_D); }
+		if (iter > 1) { fprintf(stdout, " %22.12f", delta_DIIS); }
+		fprintf(stdout, "\n");
 
-		if (fabs(delta_E) < 1.0e-12 && rms_D < 1.0e-10) { break; }
+
+		// convergence criteria
+		if (fabs(delta_E) < 1.0e-12 &&
+			rms_D < 1.0e-10 && delta_DIIS < 1.0e-10) { break; }
+
 
 		// update energy and density matrix for the next iteration
 		ene_prev = ene_total;
