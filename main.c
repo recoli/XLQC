@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	fprintf(stdout, "Nuclear repulsion = %-22.12f\n", ene_nucl);
+	fprintf(stdout, "Nuclear repulsion = %-20.10f\n", ene_nucl);
 
 
 	//====== one- and two-electron integrals ========
@@ -264,7 +264,7 @@ int main(int argc, char* argv[])
 	gsl_matrix_set_zero(D_prev);
 	ene_prev = 0.0;
 
-	fprintf(stdout, "%5s %22s %22s %22s %22s\n", 
+	fprintf(stdout, "%5s %20s %20s %20s %20s\n",
 			"Iter", "E_total", "delta_E", "rms_D", "delta_DIIS");
 
 
@@ -451,9 +451,9 @@ int main(int argc, char* argv[])
 		}
 		rms_D = sqrt(rms_D);
 
-		fprintf(stdout, "%5d %22.12f", iter, ene_total);
-		if (iter > 0) { fprintf(stdout, " %22.12f %22.12f", delta_E, rms_D); }
-		if (iter > 1) { fprintf(stdout, " %22.12f", delta_DIIS); }
+		fprintf(stdout, "%5d %20.10f", iter, ene_total);
+		if (iter > 0) { fprintf(stdout, " %20.10f %20.10f", delta_E, rms_D); }
+		if (iter > 1) { fprintf(stdout, " %20.10f", delta_DIIS); }
 		fprintf(stdout, "\n");
 
 
@@ -470,17 +470,20 @@ int main(int argc, char* argv[])
 		++ iter;
 	}
 
-	fprintf(stdout, "SCF converged! E_total = %22.12f\n", ene_total);
+	fprintf(stdout, "SCF converged! E_total = %20.10f\n", ene_total);
 
 
-	fprintf(stdout, "%5s %10s %16s\n", "MO", "State", "Energy");
+	fprintf(stdout, "%5s %10s %15s %12s\n", "MO", "State", "E(Eh)", "E(eV)");
 	for (ibasis = 0; ibasis < nbasis; ++ ibasis)
 	{
 		char occ[10];
 		if (ibasis < n_occ) { strcpy(occ, "occ."); }
 		else { strcpy(occ, "virt."); }
-		fprintf(stdout, "%5d %10s %16.6f\n",
-				ibasis + 1, occ, gsl_vector_get(emo, ibasis));
+
+		// CODATA 2014: 1 Hartree = 27.21138602 eV
+		double ener = gsl_vector_get(emo, ibasis);
+		fprintf(stdout, "%5d %10s %15.5f %12.2f\n",
+				ibasis + 1, occ, ener, ener * 27.21138602);
 	}
 
 
