@@ -125,6 +125,8 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	fprintf(stdout, "Nuclear repulsion = %-22.12f\n", ene_nucl);
+
 
 	//====== one- and two-electron integrals ========
 
@@ -221,9 +223,6 @@ int main(int argc, char* argv[])
 	int n_occ = n_elec / 2;
 
 
-	fprintf(stdout, "Nuclear repulsion= %-22.12f\n", ene_nucl);
-
-
 	// get core Hamiltonian
 	gsl_matrix *H_core = gsl_matrix_alloc(nbasis, nbasis);
 	sum_H_core(nbasis, H_core, T, V);
@@ -287,6 +286,25 @@ int main(int argc, char* argv[])
 	gsl_matrix *SDF  = gsl_matrix_alloc(nbasis, nbasis);
 
 
+	// Generalized Wolfsberg-Helmholtz initial guess
+	double cx = 1.0;
+	int mu, nu;
+	for (mu = 0; mu < nbasis; ++ mu)
+	{
+		double Hmm = gsl_matrix_get(H_core, mu, mu);
+		for (nu = 0; nu < nbasis; ++ nu)
+		{
+			double Smn = gsl_matrix_get(S, mu, nu);
+			double Hnn = gsl_matrix_get(H_core, nu, nu);
+			double Fmn = cx * Smn * (Hmm + Hnn) / 2.0;
+			gsl_matrix_set(Fock, mu, nu, Fmn);
+		}
+	}
+
+	Fock_to_Coef(nbasis, Fock, S_invsqrt, Coef, emo);
+	Coef_to_Dens(nbasis, n_occ, Coef, D_prev);
+
+
 	int iter = 0;
 	while(1)
 	{
@@ -301,7 +319,7 @@ int main(int argc, char* argv[])
 
 
 		// start DIIS
-		if (iter > 1)
+		if (iter > 0)
 		{
 			// dimension of DIIS, e.g. number of error matrices
 			if (diis_dim < MAX_DIIS_DIM) { diis_dim = diis_index + 1; }
