@@ -163,13 +163,8 @@ int main(int argc, char* argv[])
 
 					int ijkl = ij2intindex(ij, kl);
 
-					double eri;
 					// use HGP for two-electron integrals
-					eri = contr_hrr(
-						  p_basis->nprims[a], p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], p_basis->norm[a], p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2], p_basis->expon[a], p_basis->coef[a],
-						  p_basis->nprims[b], p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], p_basis->norm[b], p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2], p_basis->expon[b], p_basis->coef[b],
-						  p_basis->nprims[c], p_basis->xbas[c][0], p_basis->xbas[c][1], p_basis->xbas[c][2], p_basis->norm[c], p_basis->lmn[c][0], p_basis->lmn[c][1], p_basis->lmn[c][2], p_basis->expon[c], p_basis->coef[c],
-						  p_basis->nprims[d], p_basis->xbas[d][0], p_basis->xbas[d][1], p_basis->xbas[d][2], p_basis->norm[d], p_basis->lmn[d][0], p_basis->lmn[d][1], p_basis->lmn[d][2], p_basis->expon[d], p_basis->coef[d]);
+					double eri = calc_int_eri_hgp(p_basis, a, b, c, d);
 
 					ERI[ijkl] = eri;
 				}
@@ -285,17 +280,7 @@ int main(int argc, char* argv[])
 	{
 		for (b = 0; b < p_basis->num; ++ b)
 		{
-			double eri;
-			eri = contr_hrr(
-				  p_basis->nprims[a], p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2],
-				  p_basis->norm[a], p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2], p_basis->expon[a], p_basis->coef[a],
-				  p_basis->nprims[b], p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2],
-				  p_basis->norm[b], p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2], p_basis->expon[b], p_basis->coef[b],
-				  p_basis->nprims[a], p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2],
-				  p_basis->norm[a], p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2], p_basis->expon[a], p_basis->coef[a],
-				  p_basis->nprims[b], p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2],
-				  p_basis->norm[b], p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2], p_basis->expon[b], p_basis->coef[b]);
-
+			double eri = calc_int_eri_hgp(p_basis, a, b, a, b);
 			double Qab = sqrt(eri);
 			gsl_matrix_set(Q, a, b, Qab);
 		}
@@ -340,16 +325,7 @@ int main(int argc, char* argv[])
 						if (Qab * Qcd < 1.0e-8) { continue; }
 
 
-						double eri;
-						eri = contr_hrr(
-							  p_basis->nprims[a], p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2],
-							  p_basis->norm[a], p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2], p_basis->expon[a], p_basis->coef[a],
-							  p_basis->nprims[b], p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2],
-							  p_basis->norm[b], p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2], p_basis->expon[b], p_basis->coef[b],
-							  p_basis->nprims[c], p_basis->xbas[c][0], p_basis->xbas[c][1], p_basis->xbas[c][2],
-							  p_basis->norm[c], p_basis->lmn[c][0], p_basis->lmn[c][1], p_basis->lmn[c][2], p_basis->expon[c], p_basis->coef[c],
-							  p_basis->nprims[d], p_basis->xbas[d][0], p_basis->xbas[d][1], p_basis->xbas[d][2],
-							  p_basis->norm[d], p_basis->lmn[d][0], p_basis->lmn[d][1], p_basis->lmn[d][2], p_basis->expon[d], p_basis->coef[d]);
+						double eri = calc_int_eri_hgp(p_basis, a, b, c, d);
 
 						// ab|cd  -->  G_ab += D_cd * ERI_abcd
 						// ab|cd  -->  G_ac -= 0.5 * D_bd * ERI_abcd
@@ -601,7 +577,7 @@ int main(int argc, char* argv[])
 	gsl_matrix_free(S);
 	gsl_matrix_free(T);
 	gsl_matrix_free(V);
-	//free(ERI);
+	free(ERI);
 
 	//gsl_matrix_free(Q);
 

@@ -23,3 +23,4 @@ void read_basis(Atom *p_atom, Basis *p_basis);
 double calc_int_overlap(Basis *p_basis, int a, int b);
 double calc_int_kinetic(Basis *p_basis, int a, int b);
 double calc_int_nuc_attr(Basis *p_basis, int a, int b, Atom *p_atom);
+double calc_int_eri_hgp(Basis *p_basis, int a, int b, int c, int d);
