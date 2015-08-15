@@ -3,8 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define CART_DIM 3
-#define MAX_STR_LEN 256
+#include "typedef.h"
 
 //=======================================
 // allocate memory with failure checking
@@ -88,7 +87,7 @@ int get_natoms(void)
 //================================
 // read geometry
 //================================
-void read_geom(double **atom_pos, int *atom_nuc_chg, char **atom_name)
+void read_geom(Atom *p_atom)
 {
 	FILE *f_geom;
 	f_geom = fopen("geom.dat","r");
@@ -105,15 +104,22 @@ void read_geom(double **atom_pos, int *atom_nuc_chg, char **atom_name)
 		sscanf(line, "%d", &natoms);
 	}
 
+	if (natoms != p_atom->num)
+	{
+		fprintf(stderr, "Error: natoms (%d) is not equal to p_atom->num (%d)!\n",
+				natoms, p_atom->num);
+		exit(1);
+	}
+
 	int iatom;
 	for (iatom = 0; iatom < natoms; ++ iatom)
 	{
 		if (fgets(line, MAX_STR_LEN, f_geom) != NULL)
 		{
-			sscanf(line, "%s%lf%lf%lf", atom_name[iatom], 
-					&atom_pos[iatom][0], &atom_pos[iatom][1], &atom_pos[iatom][2]);
+			sscanf(line, "%s%lf%lf%lf", p_atom->name[iatom], 
+					&p_atom->pos[iatom][0], &p_atom->pos[iatom][1], &p_atom->pos[iatom][2]);
 
-			atom_nuc_chg[iatom] = get_nuc_chg(atom_name[iatom]);
+			p_atom->nuc_chg[iatom] = get_nuc_chg(p_atom->name[iatom]);
 		}
 	}
 }
@@ -122,7 +128,7 @@ void read_geom(double **atom_pos, int *atom_nuc_chg, char **atom_name)
 // parse basis set
 // get number of basis functions
 //======================================
-void parse_basis(int natoms, char **atom_name, int *atom_nuc_chg, int *p_nbasis)
+void parse_basis(Atom *p_atom, Basis *p_basis)
 {
 	FILE *f_basis;
 	f_basis = fopen("basis.dat","r");
@@ -245,7 +251,7 @@ void parse_basis(int natoms, char **atom_name, int *atom_nuc_chg, int *p_nbasis)
 
 
 	// initialize number of basis functions for the whole system
-	*p_nbasis = 0;
+	p_basis->num = 0;
 
 	// write basis functions for each atom into basis_all.dat
 	FILE *f_basis_all;
@@ -257,16 +263,16 @@ void parse_basis(int natoms, char **atom_name, int *atom_nuc_chg, int *p_nbasis)
 	}
 
 	int iatom;
-	for (iatom = 0; iatom < natoms; ++ iatom)
+	for (iatom = 0; iatom < p_atom->num; ++ iatom)
 	{
 		// find the correct element for this atom
 		// and count number of basis functions
 		int found = 0;
 		for (ielem = 0; ielem < nelems; ++ ielem)
 		{
-			if (atom_nuc_chg[iatom] == elem_nuc_chg[ielem])
+			if (p_atom->nuc_chg[iatom] == elem_nuc_chg[ielem])
 			{
-				*p_nbasis += elem_n_basis[ielem];
+				p_basis->num += elem_n_basis[ielem];
 				found = 1;
 				break;
 			}
@@ -274,14 +280,14 @@ void parse_basis(int natoms, char **atom_name, int *atom_nuc_chg, int *p_nbasis)
 
 		if (0 == found)
 		{
-			fprintf(stderr, "Error: no basis function for atom %d (%s)!\n", iatom+1, atom_name[iatom]);
+			fprintf(stderr, "Error: no basis function for atom %d (%s)!\n", iatom+1, p_atom->name[iatom]);
 			exit(1);
 		}
 
 		// read basis set for this atom
 		// and write to basis_all.dat
 		char atom_file[MAX_STR_LEN];
-		sprintf(atom_file, "basis_%s.dat", atom_name[iatom]);
+		sprintf(atom_file, "basis_%s.dat", p_atom->name[iatom]);
 
 		FILE *f_atom;
 		f_atom = fopen(atom_file,"r");
@@ -310,8 +316,7 @@ void parse_basis(int natoms, char **atom_name, int *atom_nuc_chg, int *p_nbasis)
 //==================================================
 // read the full basis set created by parse_basis
 //==================================================
-void read_basis(int natoms, double **atom_pos, int nbasis, double **expon, double **coef, 
-				int *nprims, int **lmn, double **xbas)
+void read_basis(Atom *p_atom, Basis *p_basis)
 {
 	FILE *f_basis_all;
 	f_basis_all = fopen("basis_all.dat","r");
@@ -342,12 +347,12 @@ void read_basis(int natoms, double **atom_pos, int nbasis, double **expon, doubl
 			if (fgets(line, MAX_STR_LEN, f_basis_all) != NULL)
 			{
 				double dbl_num;
-				sscanf(line, "%s%d%lf", cart_type, &nprims[ibasis], &dbl_num);
+				sscanf(line, "%s%d%lf", cart_type, &p_basis->nprims[ibasis], &dbl_num);
 
 				if (0 == strcmp(cart_type, "****")) { break; }
 
 				int iprim;
-				for (iprim = 0; iprim < nprims[ibasis]; ++ iprim)
+				for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
 				{
 					if (fgets(line, MAX_STR_LEN, f_basis_all) != NULL)
 					{
@@ -357,24 +362,24 @@ void read_basis(int natoms, double **atom_pos, int nbasis, double **expon, doubl
 							double expon_s, coef_s;
 							sscanf(line, "%lf%lf", &expon_s, &coef_s);
 
-							// at the beginning, allocate memories for expon and coef
+							// at the beginning, allocate memories for p_basis->expon and p_basis->coef
 							// also assign xbas (center of basis funct) and Cartesian lmn
 							if (0 == iprim)
 							{
-								expon[ibasis] = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
-								coef[ibasis]  = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
+								p_basis->expon[ibasis] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
+								p_basis->coef[ibasis]  = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
 
-								xbas[ibasis][0] = atom_pos[iatom][0];
-								xbas[ibasis][1] = atom_pos[iatom][1];
-								xbas[ibasis][2] = atom_pos[iatom][2];
+								p_basis->xbas[ibasis][0] = p_atom->pos[iatom][0];
+								p_basis->xbas[ibasis][1] = p_atom->pos[iatom][1];
+								p_basis->xbas[ibasis][2] = p_atom->pos[iatom][2];
 
-								lmn[ibasis][0] = 0;
-								lmn[ibasis][1] = 0;
-								lmn[ibasis][2] = 0;
+								p_basis->lmn[ibasis][0] = 0;
+								p_basis->lmn[ibasis][1] = 0;
+								p_basis->lmn[ibasis][2] = 0;
 							}
 
-							expon[ibasis][iprim] = expon_s;
-							coef[ibasis][iprim]  = coef_s;
+							p_basis->expon[ibasis][iprim] = expon_s;
+							p_basis->coef[ibasis][iprim]  = coef_s;
 						}
 						
 						// SP
@@ -386,20 +391,20 @@ void read_basis(int natoms, double **atom_pos, int nbasis, double **expon, doubl
 							// S
 							if (0 == iprim)
 							{
-								expon[ibasis] = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
-								coef[ibasis]  = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
+								p_basis->expon[ibasis] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
+								p_basis->coef[ibasis]  = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
 
-								xbas[ibasis][0] = atom_pos[iatom][0];
-								xbas[ibasis][1] = atom_pos[iatom][1];
-								xbas[ibasis][2] = atom_pos[iatom][2];
+								p_basis->xbas[ibasis][0] = p_atom->pos[iatom][0];
+								p_basis->xbas[ibasis][1] = p_atom->pos[iatom][1];
+								p_basis->xbas[ibasis][2] = p_atom->pos[iatom][2];
 
-								lmn[ibasis][0] = 0;
-								lmn[ibasis][1] = 0;
-								lmn[ibasis][2] = 0;
+								p_basis->lmn[ibasis][0] = 0;
+								p_basis->lmn[ibasis][1] = 0;
+								p_basis->lmn[ibasis][2] = 0;
 							}
 
-							expon[ibasis][iprim] = expon_sp;
-							coef[ibasis][iprim]  = coef_s;
+							p_basis->expon[ibasis][iprim] = expon_sp;
+							p_basis->coef[ibasis][iprim]  = coef_s;
 
 							int ii, kk;
 							int p_lmn[3][3] = {{1,0,0}, {0,1,0}, {0,0,1}};
@@ -409,22 +414,22 @@ void read_basis(int natoms, double **atom_pos, int nbasis, double **expon, doubl
 							{
 								for (ii = 1; ii <= 3; ++ ii)
 								{
-									nprims[ibasis + ii] = nprims[ibasis];
-									expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
-									coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
+									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
+									p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
+									p_basis->coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
 
 									for (kk = 0; kk < CART_DIM; ++ kk)
 									{
-										xbas[ibasis + ii][kk] = atom_pos[iatom][kk];
-										lmn[ibasis + ii][kk] = p_lmn[ii - 1][kk]; // NOTE: ii-1, not ii!
+										p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
+										p_basis->lmn[ibasis + ii][kk] = p_lmn[ii - 1][kk]; // NOTE: ii-1, not ii!
 									}
 								}
 							}
 
 							for (ii = 1; ii <= 3; ++ ii)
 							{
-								expon[ibasis + ii][iprim] = expon_sp;
-								coef[ibasis + ii][iprim] = coef_p;
+								p_basis->expon[ibasis + ii][iprim] = expon_sp;
+								p_basis->coef[ibasis + ii][iprim] = coef_p;
 							}
 						}
 						
@@ -442,22 +447,22 @@ void read_basis(int natoms, double **atom_pos, int nbasis, double **expon, doubl
 							{
 								for (ii = 0; ii <= 2; ++ ii)
 								{
-									nprims[ibasis + ii] = nprims[ibasis];
-									expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
-									coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
+									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
+									p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
+									p_basis->coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
 
 									for (kk = 0; kk < CART_DIM; ++ kk)
 									{
-										xbas[ibasis + ii][kk] = atom_pos[iatom][kk];
-										lmn[ibasis + ii][kk] = p_lmn[ii][kk];
+										p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
+										p_basis->lmn[ibasis + ii][kk] = p_lmn[ii][kk];
 									}
 								}
 							}
 
 							for (ii = 0; ii <= 2; ++ ii)
 							{
-								expon[ibasis + ii][iprim] = expon_p;
-								coef[ibasis + ii][iprim] = coef_p;
+								p_basis->expon[ibasis + ii][iprim] = expon_p;
+								p_basis->coef[ibasis + ii][iprim] = coef_p;
 							}
 						}
 
@@ -476,22 +481,22 @@ void read_basis(int natoms, double **atom_pos, int nbasis, double **expon, doubl
 							{
 								for (ii = 0; ii <= 5; ++ ii)
 								{
-									nprims[ibasis + ii] = nprims[ibasis];
-									expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
-									coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
+									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
+									p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
+									p_basis->coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
 
 									for (kk = 0; kk < CART_DIM; ++ kk)
 									{
-										xbas[ibasis + ii][kk] = atom_pos[iatom][kk];
-										lmn[ibasis + ii][kk] = d_lmn[ii][kk];
+										p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
+										p_basis->lmn[ibasis + ii][kk] = d_lmn[ii][kk];
 									}
 								}
 							}
 
 							for (ii = 0; ii <= 5; ++ ii)
 							{
-								expon[ibasis + ii][iprim] = expon_d;
-								coef[ibasis + ii][iprim] = coef_d;
+								p_basis->expon[ibasis + ii][iprim] = expon_d;
+								p_basis->coef[ibasis + ii][iprim] = coef_d;
 							}
 						}
 
@@ -511,22 +516,22 @@ void read_basis(int natoms, double **atom_pos, int nbasis, double **expon, doubl
 							{
 								for (ii = 0; ii <= 9; ++ ii)
 								{
-									nprims[ibasis + ii] = nprims[ibasis];
-									expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
-									coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
+									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
+									p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
+									p_basis->coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
 
 									for (kk = 0; kk < CART_DIM; ++ kk)
 									{
-										xbas[ibasis + ii][kk] = atom_pos[iatom][kk];
-										lmn[ibasis + ii][kk] = f_lmn[ii][kk];
+										p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
+										p_basis->lmn[ibasis + ii][kk] = f_lmn[ii][kk];
 									}
 								}
 							}
 
 							for (ii = 0; ii <= 9; ++ ii)
 							{
-								expon[ibasis + ii][iprim] = expon_f;
-								coef[ibasis + ii][iprim] = coef_f;
+								p_basis->expon[ibasis + ii][iprim] = expon_f;
+								p_basis->coef[ibasis + ii][iprim] = coef_f;
 							}
 						}
 					}
@@ -544,13 +549,13 @@ void read_basis(int natoms, double **atom_pos, int nbasis, double **expon, doubl
 	}
 
 	// check number of atoms and basis functions
-	if (iatom != natoms)
+	if (iatom != p_atom->num)
 	{
-		fprintf(stderr, "Error: iatom=%d, natoms=%d\n", iatom, natoms);
+		fprintf(stderr, "Error: iatom=%d, p_atom->num=%d\n", iatom, p_atom->num);
 	}
-	if (ibasis != nbasis)
+	if (ibasis != p_basis->num)
 	{
-		fprintf(stderr, "Error: ibasis=%d, nbasis=%d\n", ibasis, nbasis);
+		fprintf(stderr, "Error: ibasis=%d, p_basis->num=%d\n", ibasis, p_basis->num);
 	}
 
 	fclose(f_basis_all);
