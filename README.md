@@ -1,6 +1,5 @@
 # XLQC
 My experimental quantum chemistry code.
-Support Cartesian basis functions up to d-functions.
 Illustrated with a Hartree-Fock SCF calculation of H2O.
 
 Reference material:
