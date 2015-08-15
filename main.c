@@ -60,15 +60,16 @@ int main(int argc, char* argv[])
 
 	printf("System Nbasis = %d\n", p_basis->num);
 
-	// basis function exponents, coefficients, and center positions
+	// basis function exponents, coefficients, and normalization factors
 	p_basis->expon = (double **)my_malloc(sizeof(double *) * p_basis->num);
 	p_basis->coef  = (double **)my_malloc(sizeof(double *) * p_basis->num);
-	p_basis->xbas  = (double **)my_malloc(sizeof(double *) * p_basis->num);
+	p_basis->norm  = (double **)my_malloc(sizeof(double *) * p_basis->num);
 
 	// number of primitive functions in each contracted funciton
 	p_basis->nprims = (int *)my_malloc(sizeof(int) * p_basis->num);
 
-	// Cartesian l,m,n
+	// Cartesian coordinates and l,m,n numbers
+	p_basis->xbas  = (double **)my_malloc(sizeof(double *) * p_basis->num);
 	p_basis->lmn = (int **)my_malloc(sizeof(int *) * p_basis->num);
 
 	int ibasis;
@@ -78,25 +79,8 @@ int main(int argc, char* argv[])
 		p_basis->lmn[ibasis]  = (int *)my_malloc(sizeof(int) * CART_DIM);
 	}
 
-	// read basis set
-	//read_basis(p_atom->num, p_atom->pos, p_basis->num, p_basis->expon, p_basis->coef, p_basis->nprims, p_basis->lmn, p_basis->xbas);
+	// read basis set (also calculate normalization factors)
 	read_basis(p_atom, p_basis);
-
-	// normalization factors for each primitive function
-	p_basis->norm = (double **)my_malloc(sizeof(double *) * p_basis->num);
-
-	for (ibasis = 0; ibasis < p_basis->num; ++ ibasis)
-	{
-		p_basis->norm[ibasis] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-
-		int iprim;
-		for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
-		{
-			p_basis->norm[ibasis][iprim] = norm_factor(p_basis->expon[ibasis][iprim], 
-									p_basis->lmn[ibasis][0], p_basis->lmn[ibasis][1], p_basis->lmn[ibasis][2]);
-		}
-	}
-
 
 #ifdef DEBUG
 	for (ibasis = 0; ibasis < p_basis->num; ++ ibasis)
@@ -104,7 +88,8 @@ int main(int argc, char* argv[])
 		int iprim;
 		for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
 		{
-			printf("%16.8f%16.8f\n", p_basis->expon[ibasis][iprim], p_basis->coef[ibasis][iprim]);
+			printf("%16.8f%16.8f\n", 
+					p_basis->expon[ibasis][iprim], p_basis->coef[ibasis][iprim]);
 		}
 	}
 #endif
@@ -122,7 +107,8 @@ int main(int argc, char* argv[])
 			double dy = p_atom->pos[ata][1] - p_atom->pos[atb][1];
 			double dz = p_atom->pos[ata][2] - p_atom->pos[atb][2];
 			double dr = sqrt(dx*dx + dy*dy + dz*dz);
-			ene_nucl += p_atom->nuc_chg[ata] * p_atom->nuc_chg[atb] / dr;
+			ene_nucl += (double)p_atom->nuc_chg[ata] * 
+						(double)p_atom->nuc_chg[atb] / dr;
 		}
 	}
 
@@ -141,34 +127,19 @@ int main(int argc, char* argv[])
 	int n_eri = n_combi * (n_combi + 1) / 2;
 	double *ERI = (double *)my_malloc(sizeof(double) * n_eri);
 
-
 	int a,b,c,d;
 	for (a = 0; a < p_basis->num; ++ a)
 	{
 		for (b = 0; b <= a; ++ b)
 		{
 			// overlap
-			double s;
-			s = contr_overlap(
-				p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
-				p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2]);
+			double s = calc_int_overlap(p_basis, a, b);
 
 			// kinetic energy
-			double t;
-			t = contr_kinetic(
-				p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
-				p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2]);
+			double t = calc_int_kinetic(p_basis, a, b);
 
 			// nuclear repulsion
-			double v = 0.0;
-			for (c = 0; c < p_atom->num; ++ c)
-			{
-				v += contr_nuc_attr(
-					 p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
-					 p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2],
-					 p_atom->nuc_chg[c], p_atom->pos[c][0], p_atom->pos[c][1], p_atom->pos[c][2]);
-			}
-
+			double v = calc_int_nuc_attr(p_basis, a, b, p_atom);
 
 			// save one-electron integrals in matrices
 			gsl_matrix_set(S, a, b, s);
@@ -181,9 +152,8 @@ int main(int argc, char* argv[])
 				gsl_matrix_set(V, b, a, v);
 			}
 
-
-			int ij = ij2intindex(a, b);
 			// two-electron integral
+			int ij = ij2intindex(a, b);
 			for (c = 0; c < p_basis->num; ++ c)
 			{
 				for (d = 0; d <= c; ++ d)

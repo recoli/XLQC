@@ -19,3 +19,7 @@ void parse_basis(Atom *p_atom, Basis *p_basis);
 
 // read the full basis set created by parse_basis
 void read_basis(Atom *p_atom, Basis *p_basis);
+
+double calc_int_overlap(Basis *p_basis, int a, int b);
+double calc_int_kinetic(Basis *p_basis, int a, int b);
+double calc_int_nuc_attr(Basis *p_basis, int a, int b, Atom *p_atom);

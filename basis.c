@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "typedef.h"
+#include "int_lib/cints.h"
 
 //=======================================
 // allocate memory with failure checking
@@ -548,6 +549,8 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 		++ iatom;
 	}
 
+	fclose(f_basis_all);
+
 	// check number of atoms and basis functions
 	if (iatom != p_atom->num)
 	{
@@ -558,5 +561,71 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 		fprintf(stderr, "Error: ibasis=%d, p_basis->num=%d\n", ibasis, p_basis->num);
 	}
 
-	fclose(f_basis_all);
+	// calculate normalization factors
+	for (ibasis = 0; ibasis < p_basis->num; ++ ibasis)
+	{
+		p_basis->norm[ibasis] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
+
+		int iprim;
+		for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
+		{
+			p_basis->norm[ibasis][iprim] = 
+				norm_factor(p_basis->expon[ibasis][iprim], 
+							p_basis->lmn[ibasis][0], p_basis->lmn[ibasis][1], p_basis->lmn[ibasis][2]);
+		}
+	}
+}
+
+double calc_int_overlap(Basis *p_basis, int a, int b)
+{
+	double s;
+
+	s = contr_overlap(
+		p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
+		p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
+		p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+
+		p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
+		p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
+		p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2]);
+
+	return s;
+}
+
+double calc_int_kinetic(Basis *p_basis, int a, int b)
+{
+	double t;
+
+	t = contr_kinetic(
+		p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
+		p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
+		p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+
+		p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
+		p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], p_basis->lmn[b][0], 
+		p_basis->lmn[b][1], p_basis->lmn[b][2]);
+
+	return t;
+}
+
+double calc_int_nuc_attr(Basis *p_basis, int a, int b, Atom *p_atom)
+{
+	double v = 0.0;
+
+	int c;
+	for (c = 0; c < p_atom->num; ++ c)
+	{
+		v += contr_nuc_attr(
+			 p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
+			 p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
+			 p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+
+			 p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
+			 p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
+			 p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2],
+
+			 p_atom->nuc_chg[c], p_atom->pos[c][0], p_atom->pos[c][1], p_atom->pos[c][2]);
+	}
+
+	return v;
 }
