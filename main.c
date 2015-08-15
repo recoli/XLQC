@@ -324,7 +324,51 @@ int main(int argc, char* argv[])
 		// diagonalize F' matrix to get C'
 		// C = S^-1/2 * C'
 		// compute new density matrix
-		form_G(nbasis, D_prev, ERI, G);
+
+
+
+		//form_G(nbasis, D_prev, ERI, G);
+		// ERI
+		gsl_matrix_set_zero(G);
+		for (a=0; a < nbasis; a++)
+		{
+			for (b=0; b < nbasis; b++)
+			{
+				//int ij = ij2intindex(a, b);
+
+				for (c=0; c < nbasis; c++)
+				{
+					for (d=0; d < nbasis; d++)
+					{
+						//int kl = ij2intindex(c, d);
+						//if (ij < kl) { continue; }
+
+						double eri;
+						eri = contr_hrr(
+							  nprims[a], xbas[a][0], xbas[a][1], xbas[a][2],
+							  norm[a], lmn[a][0], lmn[a][1], lmn[a][2], expon[a], coef[a],
+							  nprims[b], xbas[b][0], xbas[b][1], xbas[b][2],
+							  norm[b], lmn[b][0], lmn[b][1], lmn[b][2], expon[b], coef[b],
+							  nprims[c], xbas[c][0], xbas[c][1], xbas[c][2],
+							  norm[c], lmn[c][0], lmn[c][1], lmn[c][2], expon[c], coef[c],
+							  nprims[d], xbas[d][0], xbas[d][1], xbas[d][2],
+							  norm[d], lmn[d][0], lmn[d][1], lmn[d][2], expon[d], coef[d]);
+
+						// ab|cd  -->  G_ab += D_cd * ERI_abcd
+						gsl_matrix_set(G,a,b, gsl_matrix_get(G,a,b) + gsl_matrix_get(D_prev,c,d) * eri);
+
+						// ab|cd  -->  G_ac -= 0.5 * D_bd * ERI_abcd
+						gsl_matrix_set(G,a,c, gsl_matrix_get(G,a,c) - 0.5 * gsl_matrix_get(D_prev,b,d) * eri);
+					}
+				}
+			}
+		}
+
+		printf("G:\n");
+		my_print_matrix(G);
+
+
+
 		form_Fock(nbasis, H_core, G, Fock);
 
 
@@ -440,7 +484,7 @@ int main(int argc, char* argv[])
 		double delta_E = ene_total - ene_prev;
 
 		double rms_D = 0.0;
-		int mu, nu;
+		//int mu, nu;
 		for (mu = 0; mu < nbasis; ++ mu)
 		{
 			for (nu = 0; nu < nbasis; ++ nu)
