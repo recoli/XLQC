@@ -256,6 +256,7 @@ int main(int argc, char* argv[])
 
 	// initialize density matrix
 	gsl_matrix_set_zero(D_prev);
+	gsl_matrix_set_zero(D);
 	ene_prev = 0.0;
 
 	fprintf(stdout, "%5s %20s %20s %20s %20s\n",
@@ -309,6 +310,30 @@ int main(int argc, char* argv[])
 	Coef_to_Dens(nbasis, n_occ, Coef, D_prev);
 
 
+	// Q: sqrt(ab|ab) for prescreening of two-electron integrals
+	gsl_matrix *Q = gsl_matrix_alloc(nbasis, nbasis);
+	for (a = 0; a < nbasis; ++ a)
+	{
+		for (b = 0; b < nbasis; ++ b)
+		{
+			double eri;
+			eri = contr_hrr(
+				  nprims[a], xbas[a][0], xbas[a][1], xbas[a][2],
+				  norm[a], lmn[a][0], lmn[a][1], lmn[a][2], expon[a], coef[a],
+				  nprims[b], xbas[b][0], xbas[b][1], xbas[b][2],
+				  norm[b], lmn[b][0], lmn[b][1], lmn[b][2], expon[b], coef[b],
+				  nprims[a], xbas[a][0], xbas[a][1], xbas[a][2],
+				  norm[a], lmn[a][0], lmn[a][1], lmn[a][2], expon[a], coef[a],
+				  nprims[b], xbas[b][0], xbas[b][1], xbas[b][2],
+				  norm[b], lmn[b][0], lmn[b][1], lmn[b][2], expon[b], coef[b]);
+
+			double Qab = sqrt(eri);
+			gsl_matrix_set(Q, a, b, Qab);
+		}
+	}
+
+
+	// start SCF iterations
 	int iter = 0;
 	while(1)
 	{
@@ -320,7 +345,6 @@ int main(int argc, char* argv[])
 		// compute new density matrix
 
 
-
 		//form_G(nbasis, D_prev, ERI, G);
 		gsl_matrix_set_zero(G);
 		for (a = 0; a < nbasis; ++ a)
@@ -329,12 +353,21 @@ int main(int argc, char* argv[])
 			{
 				int ij = ij2intindex(a, b);
 
+				double Qab = gsl_matrix_get(Q,a,b);
+
 				for (c = 0; c < nbasis; ++ c)
 				{
 					for (d = 0; d <= c; ++ d)
 					{
 						int kl = ij2intindex(c, d);
 						if (ij < kl) { continue; }
+
+
+						// Schwarz inequality
+						// (ab|cd) <= sqrt(ab|ab) * sqrt(cd|cd)
+						double Qcd = gsl_matrix_get(Q,c,d);
+						if (Qab * Qcd < 1.0e-8) { continue; }
+
 
 						double eri;
 						eri = contr_hrr(
@@ -409,7 +442,6 @@ int main(int argc, char* argv[])
 		printf("G:\n");
 		my_print_matrix(G);
 #endif
-
 
 		form_Fock(nbasis, H_core, G, Fock);
 
@@ -598,6 +630,8 @@ int main(int argc, char* argv[])
 	gsl_matrix_free(T);
 	gsl_matrix_free(V);
 	//free(ERI);
+
+	gsl_matrix_free(Q);
 
 
 	// free arrays for geometry
