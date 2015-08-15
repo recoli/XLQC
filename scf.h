@@ -44,3 +44,9 @@ void init_guess_GWH(Basis *p_basis, gsl_matrix *H_core, gsl_matrix *S, gsl_matri
 void update_Fock_DIIS(int *p_diis_dim, int *p_diis_index, double *p_delta_DIIS, 
 						gsl_matrix *Fock, gsl_matrix *D_prev, gsl_matrix *S, Basis *p_basis,
 						double ***diis_err, double ***diis_Fock);
+
+// direct SCF
+void direct_form_G(Basis *p_basis, gsl_matrix *D_prev, gsl_matrix *Q, gsl_matrix *G);
+
+// sqrt(ab|ab) for prescreening 
+void form_Q(Basis *p_basis, gsl_matrix *Q);

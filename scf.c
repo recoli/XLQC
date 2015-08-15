@@ -9,6 +9,7 @@
 #include <gsl/gsl_linalg.h>
 
 #include "typedef.h"
+#include "basis.h"
 #include "int_lib/cints.h"
 
 //===============================================
@@ -287,8 +288,6 @@ void init_guess_GWH(Basis *p_basis, gsl_matrix *H_core, gsl_matrix *S, gsl_matri
 }
 
 
-
-
 // DIIS
 void update_Fock_DIIS(int *p_diis_dim, int *p_diis_index, double *p_delta_DIIS, 
 						gsl_matrix *Fock, gsl_matrix *D_prev, gsl_matrix *S, Basis *p_basis,
@@ -401,3 +400,109 @@ void update_Fock_DIIS(int *p_diis_dim, int *p_diis_index, double *p_delta_DIIS,
 	*p_delta_DIIS = delta_DIIS;
 }
 
+
+// direct SCF
+void direct_form_G(Basis *p_basis, gsl_matrix *D_prev, gsl_matrix *Q, gsl_matrix *G)
+{
+	gsl_matrix_set_zero(G);
+
+	int a, b, c, d;
+	for (a = 0; a < p_basis->num; ++ a)
+	{
+		for (b = 0; b <= a; ++ b)
+		{
+			int ij = ij2intindex(a, b);
+
+			double Qab = gsl_matrix_get(Q,a,b);
+
+			for (c = 0; c < p_basis->num; ++ c)
+			{
+				for (d = 0; d <= c; ++ d)
+				{
+					int kl = ij2intindex(c, d);
+					if (ij < kl) { continue; }
+
+
+					// Schwarz inequality
+					// (ab|cd) <= sqrt(ab|ab) * sqrt(cd|cd)
+					double Qcd = gsl_matrix_get(Q,c,d);
+					if (Qab * Qcd < 1.0e-8) { continue; }
+
+
+					double eri = calc_int_eri_hgp(p_basis, a, b, c, d);
+
+					// ab|cd  -->  G_ab += D_cd * ERI_abcd
+					// ab|cd  -->  G_ac -= 0.5 * D_bd * ERI_abcd
+					gsl_matrix_set(G,a,b, gsl_matrix_get(G,a,b) + gsl_matrix_get(D_prev,c,d) * eri);
+					gsl_matrix_set(G,a,c, gsl_matrix_get(G,a,c) - 0.5 * gsl_matrix_get(D_prev,b,d) * eri);
+
+					// ba|cd  -->  G_ba += D_cd * ERI_abcd
+					// ba|cd  -->  G_bc -= 0.5 * D_ad * ERI_abcd
+					if (a != b)
+					{
+						gsl_matrix_set(G,b,a, gsl_matrix_get(G,b,a) + gsl_matrix_get(D_prev,c,d) * eri);
+						gsl_matrix_set(G,b,c, gsl_matrix_get(G,b,c) - 0.5 * gsl_matrix_get(D_prev,a,d) * eri);
+					}
+
+					// ab|dc  -->  G_ab += D_dc * ERI_abcd
+					// ab|dc  -->  G_ad -= 0.5 * D_bc * ERI_abcd
+					if (c != d)
+					{
+						gsl_matrix_set(G,a,b, gsl_matrix_get(G,a,b) + gsl_matrix_get(D_prev,d,c) * eri);
+						gsl_matrix_set(G,a,d, gsl_matrix_get(G,a,d) - 0.5 * gsl_matrix_get(D_prev,b,c) * eri);
+					}
+
+					// ba|dc  -->  G_ba += D_dc * ERI_abcd
+					// ba|dc  -->  G_bd -= 0.5 * D_ac * ERI_abcd
+					if (a != b && c != d)
+					{
+						gsl_matrix_set(G,b,a, gsl_matrix_get(G,b,a) + gsl_matrix_get(D_prev,d,c) * eri);
+						gsl_matrix_set(G,b,d, gsl_matrix_get(G,b,d) - 0.5 * gsl_matrix_get(D_prev,a,c) * eri);
+					}
+
+					// ab<==>cd permutations
+					if (ij != kl)
+					{
+						gsl_matrix_set(G,c,d, gsl_matrix_get(G,c,d) + gsl_matrix_get(D_prev,a,b) * eri);
+						gsl_matrix_set(G,c,a, gsl_matrix_get(G,c,a) - 0.5 * gsl_matrix_get(D_prev,d,b) * eri);
+
+						if (c != d)
+						{
+							gsl_matrix_set(G,d,c, gsl_matrix_get(G,d,c) + gsl_matrix_get(D_prev,a,b) * eri);
+							gsl_matrix_set(G,d,a, gsl_matrix_get(G,d,a) - 0.5 * gsl_matrix_get(D_prev,c,b) * eri);
+						}
+
+						if (a != b)
+						{
+							gsl_matrix_set(G,c,d, gsl_matrix_get(G,c,d) + gsl_matrix_get(D_prev,b,a) * eri);
+							gsl_matrix_set(G,c,b, gsl_matrix_get(G,c,b) - 0.5 * gsl_matrix_get(D_prev,d,a) * eri);
+						}
+
+						if (c != d && a != b)
+						{
+							gsl_matrix_set(G,d,c, gsl_matrix_get(G,d,c) + gsl_matrix_get(D_prev,b,a) * eri);
+							gsl_matrix_set(G,d,b, gsl_matrix_get(G,d,b) - 0.5 * gsl_matrix_get(D_prev,c,a) * eri);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+
+// sqrt(ab|ab) for prescreening 
+void form_Q(Basis *p_basis, gsl_matrix *Q)
+{
+	int a, b;
+	for (a = 0; a < p_basis->num; ++ a)
+	{
+		for (b = 0; b <= a; ++ b)
+		{
+			double eri = calc_int_eri_hgp(p_basis, a, b, a, b);
+			double Qab = sqrt(eri);
+			gsl_matrix_set(Q, a, b, Qab);
+			if (a != b) { gsl_matrix_set(Q, b, a, Qab); }
+		}
+	}
+}

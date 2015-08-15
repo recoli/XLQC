@@ -231,15 +231,7 @@ int main(int argc, char* argv[])
 	/*
 	// Q: sqrt(ab|ab) for prescreening of two-electron integrals
 	gsl_matrix *Q = gsl_matrix_alloc(p_basis->num, p_basis->num);
-	for (a = 0; a < p_basis->num; ++ a)
-	{
-		for (b = 0; b < p_basis->num; ++ b)
-		{
-			double eri = calc_int_eri_hgp(p_basis, a, b, a, b);
-			double Qab = sqrt(eri);
-			gsl_matrix_set(Q, a, b, Qab);
-		}
-	}
+	form_Q(p_basis, Q);
 	*/
 
 
@@ -255,90 +247,7 @@ int main(int argc, char* argv[])
 		// compute new density matrix
 
 		form_G(p_basis->num, D_prev, ERI, G);
-		/*
-		gsl_matrix_set_zero(G);
-		for (a = 0; a < p_basis->num; ++ a)
-		{
-			for (b = 0; b <= a; ++ b)
-			{
-				int ij = ij2intindex(a, b);
-
-				double Qab = gsl_matrix_get(Q,a,b);
-
-				for (c = 0; c < p_basis->num; ++ c)
-				{
-					for (d = 0; d <= c; ++ d)
-					{
-						int kl = ij2intindex(c, d);
-						if (ij < kl) { continue; }
-
-
-						// Schwarz inequality
-						// (ab|cd) <= sqrt(ab|ab) * sqrt(cd|cd)
-						double Qcd = gsl_matrix_get(Q,c,d);
-						if (Qab * Qcd < 1.0e-8) { continue; }
-
-
-						double eri = calc_int_eri_hgp(p_basis, a, b, c, d);
-
-						// ab|cd  -->  G_ab += D_cd * ERI_abcd
-						// ab|cd  -->  G_ac -= 0.5 * D_bd * ERI_abcd
-						gsl_matrix_set(G,a,b, gsl_matrix_get(G,a,b) + gsl_matrix_get(D_prev,c,d) * eri);
-						gsl_matrix_set(G,a,c, gsl_matrix_get(G,a,c) - 0.5 * gsl_matrix_get(D_prev,b,d) * eri);
-
-						// ba|cd  -->  G_ba += D_cd * ERI_abcd
-						// ba|cd  -->  G_bc -= 0.5 * D_ad * ERI_abcd
-						if (a != b)
-						{
-							gsl_matrix_set(G,b,a, gsl_matrix_get(G,b,a) + gsl_matrix_get(D_prev,c,d) * eri);
-							gsl_matrix_set(G,b,c, gsl_matrix_get(G,b,c) - 0.5 * gsl_matrix_get(D_prev,a,d) * eri);
-						}
-
-						// ab|dc  -->  G_ab += D_dc * ERI_abcd
-						// ab|dc  -->  G_ad -= 0.5 * D_bc * ERI_abcd
-						if (c != d)
-						{
-							gsl_matrix_set(G,a,b, gsl_matrix_get(G,a,b) + gsl_matrix_get(D_prev,d,c) * eri);
-							gsl_matrix_set(G,a,d, gsl_matrix_get(G,a,d) - 0.5 * gsl_matrix_get(D_prev,b,c) * eri);
-						}
-
-						// ba|dc  -->  G_ba += D_dc * ERI_abcd
-						// ba|dc  -->  G_bd -= 0.5 * D_ac * ERI_abcd
-						if (a != b && c != d)
-						{
-							gsl_matrix_set(G,b,a, gsl_matrix_get(G,b,a) + gsl_matrix_get(D_prev,d,c) * eri);
-							gsl_matrix_set(G,b,d, gsl_matrix_get(G,b,d) - 0.5 * gsl_matrix_get(D_prev,a,c) * eri);
-						}
-
-						// ab<==>cd permutations
-						if (ij != kl)
-						{
-							gsl_matrix_set(G,c,d, gsl_matrix_get(G,c,d) + gsl_matrix_get(D_prev,a,b) * eri);
-							gsl_matrix_set(G,c,a, gsl_matrix_get(G,c,a) - 0.5 * gsl_matrix_get(D_prev,d,b) * eri);
-
-							if (c != d)
-							{
-								gsl_matrix_set(G,d,c, gsl_matrix_get(G,d,c) + gsl_matrix_get(D_prev,a,b) * eri);
-								gsl_matrix_set(G,d,a, gsl_matrix_get(G,d,a) - 0.5 * gsl_matrix_get(D_prev,c,b) * eri);
-							}
-
-							if (a != b)
-							{
-								gsl_matrix_set(G,c,d, gsl_matrix_get(G,c,d) + gsl_matrix_get(D_prev,b,a) * eri);
-								gsl_matrix_set(G,c,b, gsl_matrix_get(G,c,b) - 0.5 * gsl_matrix_get(D_prev,d,a) * eri);
-							}
-
-							if (c != d && a != b)
-							{
-								gsl_matrix_set(G,d,c, gsl_matrix_get(G,d,c) + gsl_matrix_get(D_prev,b,a) * eri);
-								gsl_matrix_set(G,d,b, gsl_matrix_get(G,d,b) - 0.5 * gsl_matrix_get(D_prev,c,a) * eri);
-							}
-						}
-					}
-				}
-			}
-		}
-		*/
+		//direct_form_G(p_basis, D_prev, Q, G);
 
 #ifdef DEBUG
 		printf("G:\n");
