@@ -211,6 +211,7 @@ void parse_basis(int natoms, char **atom_name, int *atom_nuc_chg, int *p_nbasis)
 				else if (0 == strcmp(cart_type, "SP")) { elem_n_basis[ielem] += 4; }
 				else if (0 == strcmp(cart_type, "P"))  { elem_n_basis[ielem] += 3; }
 				else if (0 == strcmp(cart_type, "D"))  { elem_n_basis[ielem] += 6; }
+				else if (0 == strcmp(cart_type, "F"))  { elem_n_basis[ielem] += 10; }
 				else 
 				{ 
 					fprintf(stderr, "Error: Cartesian type %s not supported!\n", cart_type); 
@@ -493,6 +494,41 @@ void read_basis(int natoms, double **atom_pos, int nbasis, double **expon, doubl
 								coef[ibasis + ii][iprim] = coef_d;
 							}
 						}
+
+						// F
+						else if (0 == strcmp(cart_type, "F"))
+						{
+							double expon_f, coef_f;
+							sscanf(line, "%lf%lf", &expon_f, &coef_f);
+
+							int ii, kk;
+							int f_lmn[10][3] = {{3,0,0}, {2,1,0}, {2,0,1},
+												{1,2,0}, {1,1,1}, {1,0,2},
+												{0,3,0}, {0,2,1}, {0,1,2}, {0,0,3}};
+
+							// Fx3, Fx2y, Fx2z, Fxy2, Fxyz, Fxz2, Fy3, Fy2z, Fyz2, Fz3
+							if (0 == iprim)
+							{
+								for (ii = 0; ii <= 9; ++ ii)
+								{
+									nprims[ibasis + ii] = nprims[ibasis];
+									expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
+									coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * nprims[ibasis]);
+
+									for (kk = 0; kk < CART_DIM; ++ kk)
+									{
+										xbas[ibasis + ii][kk] = atom_pos[iatom][kk];
+										lmn[ibasis + ii][kk] = f_lmn[ii][kk];
+									}
+								}
+							}
+
+							for (ii = 0; ii <= 9; ++ ii)
+							{
+								expon[ibasis + ii][iprim] = expon_f;
+								coef[ibasis + ii][iprim] = coef_f;
+							}
+						}
 					}
 				}
 
@@ -500,6 +536,7 @@ void read_basis(int natoms, double **atom_pos, int nbasis, double **expon, doubl
 				else if (0 == strcmp(cart_type, "SP")) { ibasis += 4; }
 				else if (0 == strcmp(cart_type, "P"))  { ibasis += 3; }
 				else if (0 == strcmp(cart_type, "D"))  { ibasis += 6; }
+				else if (0 == strcmp(cart_type, "F"))  { ibasis += 10; }
 			}
 		}
 
