@@ -21,6 +21,22 @@ void* my_malloc(size_t bytes)
     return ptr;
 }
 
+void* my_malloc_2(size_t bytes, char *word)
+{
+    void* ptr = malloc(bytes);
+    printf("size of alloc (%s) = %zu MB\n", word, bytes / 1000000);
+
+    if(ptr == NULL) 
+    {
+        printf ("Error: could not allocate memory for %s !\n", word);
+        exit(1);
+    } 
+    else 
+    {
+        return ptr;
+    }
+}
+
 //=============================
 // combination index
 //=============================
@@ -124,6 +140,25 @@ void read_geom(Atom *p_atom)
 			p_atom->nuc_chg[iatom] = get_nuc_chg(p_atom->name[iatom]);
 		}
 	}
+}
+
+double calc_ene_nucl(Atom *p_atom)
+{
+	double ene_nucl = 0.0;
+	int ata, atb;
+	for (ata = 0; ata < p_atom->num; ++ ata)
+	{
+		for (atb = ata + 1; atb < p_atom->num; ++ atb)
+		{
+			double dx = p_atom->pos[ata][0] - p_atom->pos[atb][0];
+			double dy = p_atom->pos[ata][1] - p_atom->pos[atb][1];
+			double dz = p_atom->pos[ata][2] - p_atom->pos[atb][2];
+			double dr = sqrt(dx*dx + dy*dy + dz*dz);
+			ene_nucl += (double)p_atom->nuc_chg[ata] * 
+						(double)p_atom->nuc_chg[atb] / dr;
+		}
+	}
+	return ene_nucl;
 }
 
 //======================================
@@ -573,6 +608,20 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 			p_basis->norm[ibasis][iprim] = 
 				norm_factor(p_basis->expon[ibasis][iprim], 
 							p_basis->lmn[ibasis][0], p_basis->lmn[ibasis][1], p_basis->lmn[ibasis][2]);
+		}
+	}
+}
+
+void print_basis(Basis *p_basis)
+{
+	int ibasis;
+	for (ibasis = 0; ibasis < p_basis->num; ++ ibasis)
+	{
+		int iprim;
+		for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
+		{
+			printf("%16.8f%16.8f\n", 
+					p_basis->expon[ibasis][iprim], p_basis->coef[ibasis][iprim]);
 		}
 	}
 }

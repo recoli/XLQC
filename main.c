@@ -52,6 +52,10 @@ int main(int argc, char* argv[])
 				p_atom->pos[iatom][0], p_atom->pos[iatom][1], p_atom->pos[iatom][2]);
 	}
 	
+	// nuclear repulsion energy
+	double ene_nucl = calc_ene_nucl(p_atom);
+	fprintf(stdout, "Nuclear repulsion = %-20.10f\n", ene_nucl);
+
 
 	//====== parse basis.dat ========
 
@@ -83,36 +87,8 @@ int main(int argc, char* argv[])
 	read_basis(p_atom, p_basis);
 
 #ifdef DEBUG
-	for (ibasis = 0; ibasis < p_basis->num; ++ ibasis)
-	{
-		int iprim;
-		for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
-		{
-			printf("%16.8f%16.8f\n", 
-					p_basis->expon[ibasis][iprim], p_basis->coef[ibasis][iprim]);
-		}
-	}
+	print_basis(p_basis);
 #endif
-
-
-	//====== nuclear repulsion energy ========
-
-	double ene_nucl = 0.0;
-	int ata, atb;
-	for (ata = 0; ata < p_atom->num; ++ ata)
-	{
-		for (atb = ata + 1; atb < p_atom->num; ++ atb)
-		{
-			double dx = p_atom->pos[ata][0] - p_atom->pos[atb][0];
-			double dy = p_atom->pos[ata][1] - p_atom->pos[atb][1];
-			double dz = p_atom->pos[ata][2] - p_atom->pos[atb][2];
-			double dr = sqrt(dx*dx + dy*dy + dz*dz);
-			ene_nucl += (double)p_atom->nuc_chg[ata] * 
-						(double)p_atom->nuc_chg[atb] / dr;
-		}
-	}
-
-	fprintf(stdout, "Nuclear repulsion = %-20.10f\n", ene_nucl);
 
 
 	//====== one- and two-electron integrals ========
@@ -125,7 +101,8 @@ int main(int argc, char* argv[])
 	// two-electron ingetral
 	int n_combi = p_basis->num * (p_basis->num + 1) / 2;
 	int n_eri = n_combi * (n_combi + 1) / 2;
-	double *ERI = (double *)my_malloc(sizeof(double) * n_eri);
+	fprintf(stdout, "N_eri = %d\n", n_eri);
+	double *ERI = (double *)my_malloc_2(sizeof(double) * n_eri, "ERI");
 
 	int a,b,c,d;
 	for (a = 0; a < p_basis->num; ++ a)
@@ -220,8 +197,12 @@ int main(int argc, char* argv[])
 	gsl_matrix_set_zero(D);
 	ene_prev = 0.0;
 
-	fprintf(stdout, "%5s %20s %20s %20s %20s\n",
-			"Iter", "E_total", "delta_E", "rms_D", "delta_DIIS");
+
+	// Generalized Wolfsberg-Helmholtz initial guess
+	init_guess_GWH(p_basis, H_core, S, Fock);
+	Fock_to_Coef(p_basis->num, Fock, S_invsqrt, Coef, emo);
+	Coef_to_Dens(p_basis->num, n_occ, Coef, D_prev);
+
 
 	// DIIS error and Fock matrices
 	double ***diis_err  = (double ***)my_malloc(sizeof(double **) * MAX_DIIS_DIM);
@@ -243,24 +224,8 @@ int main(int argc, char* argv[])
 	int diis_dim = 0;
 	double delta_DIIS;
 
-
-	// Generalized Wolfsberg-Helmholtz initial guess
-	double cx = 1.0;
-	int mu, nu;
-	for (mu = 0; mu < p_basis->num; ++ mu)
-	{
-		double Hmm = gsl_matrix_get(H_core, mu, mu);
-		for (nu = 0; nu < p_basis->num; ++ nu)
-		{
-			double Smn = gsl_matrix_get(S, mu, nu);
-			double Hnn = gsl_matrix_get(H_core, nu, nu);
-			double Fmn = cx * Smn * (Hmm + Hnn) / 2.0;
-			gsl_matrix_set(Fock, mu, nu, Fmn);
-		}
-	}
-
-	Fock_to_Coef(p_basis->num, Fock, S_invsqrt, Coef, emo);
-	Coef_to_Dens(p_basis->num, n_occ, Coef, D_prev);
+	fprintf(stdout, "%5s %20s %20s %20s %20s\n",
+			"Iter", "E_total", "delta_E", "rms_D", "delta_DIIS");
 
 
 	/*
@@ -280,7 +245,7 @@ int main(int argc, char* argv[])
 
 	// start SCF iterations
 	int iter = 0;
-	while(1)
+	while (1)
 	{
 		// SCF procedure:
 		// Form new Fock matrix
@@ -288,7 +253,6 @@ int main(int argc, char* argv[])
 		// diagonalize F' matrix to get C'
 		// C = S^-1/2 * C'
 		// compute new density matrix
-
 
 		form_G(p_basis->num, D_prev, ERI, G);
 		/*
@@ -383,7 +347,6 @@ int main(int argc, char* argv[])
 
 		form_Fock(p_basis->num, H_core, G, Fock);
 
-
 		// DIIS
 		if (iter > 0)
 		{
@@ -391,7 +354,7 @@ int main(int argc, char* argv[])
 						Fock, D_prev, S, p_basis, diis_err, diis_Fock);
 		}
 
-
+		// update density matrix and energies
 		Fock_to_Coef(p_basis->num, Fock, S_invsqrt, Coef, emo);
 		Coef_to_Dens(p_basis->num, n_occ, Coef, D);
 
@@ -408,12 +371,13 @@ int main(int argc, char* argv[])
 		double delta_E = ene_total - ene_prev;
 
 		double rms_D = 0.0;
-		//int mu, nu;
+		int mu, nu;
 		for (mu = 0; mu < p_basis->num; ++ mu)
 		{
 			for (nu = 0; nu < p_basis->num; ++ nu)
 			{
-				double dd = gsl_matrix_get(D, mu, nu) - gsl_matrix_get(D_prev, mu, nu);
+				double dd = gsl_matrix_get(D, mu, nu) - 
+							gsl_matrix_get(D_prev, mu, nu);
 				rms_D += dd * dd;
 			}
 		}
@@ -436,8 +400,10 @@ int main(int argc, char* argv[])
 		++ iter;
 	}
 
+	// SCF converged
 	fprintf(stdout, "SCF converged! E_total = %20.10f\n", ene_total);
 
+	// print MO information
 	fprintf(stdout, "%5s %10s %15s %12s\n", "MO", "State", "E(Eh)", "E(eV)");
 	for (ibasis = 0; ibasis < p_basis->num; ++ ibasis)
 	{

@@ -37,6 +37,9 @@ void form_G(int nbasis, gsl_matrix *D_prev, double *ERI, gsl_matrix *G);
 // form Fock matrix
 void form_Fock(int nbasis, gsl_matrix *H_core, gsl_matrix *G, gsl_matrix *Fock);
 
+// Generalized Wolfsberg-Helmholtz initial guess
+void init_guess_GWH(Basis *p_basis, gsl_matrix *H_core, gsl_matrix *S, gsl_matrix *Fock);
+
 // DIIS
 void update_Fock_DIIS(int *p_diis_dim, int *p_diis_index, double *p_delta_DIIS, 
 						gsl_matrix *Fock, gsl_matrix *D_prev, gsl_matrix *S, Basis *p_basis,

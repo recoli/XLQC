@@ -268,6 +268,27 @@ void form_Fock(int nbasis, gsl_matrix *H_core, gsl_matrix *G, gsl_matrix *Fock)
 }
 
 
+// Generalized Wolfsberg-Helmholtz initial guess
+void init_guess_GWH(Basis *p_basis, gsl_matrix *H_core, gsl_matrix *S, gsl_matrix *Fock)
+{
+	double cx = 1.0;
+	int mu, nu;
+	for (mu = 0; mu < p_basis->num; ++ mu)
+	{
+		double Hmm = gsl_matrix_get(H_core, mu, mu);
+		for (nu = 0; nu < p_basis->num; ++ nu)
+		{
+			double Smn = gsl_matrix_get(S, mu, nu);
+			double Hnn = gsl_matrix_get(H_core, nu, nu);
+			double Fmn = cx * Smn * (Hmm + Hnn) / 2.0;
+			gsl_matrix_set(Fock, mu, nu, Fmn);
+		}
+	}
+}
+
+
+
+
 // DIIS
 void update_Fock_DIIS(int *p_diis_dim, int *p_diis_index, double *p_delta_DIIS, 
 						gsl_matrix *Fock, gsl_matrix *D_prev, gsl_matrix *S, Basis *p_basis,
