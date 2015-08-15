@@ -398,13 +398,11 @@ int main(int argc, char* argv[])
 		ene_elec = get_elec_ene(p_basis->num, D, H_core, Fock);
 		ene_total = ene_nucl + ene_elec;
 
-
 #ifdef DEBUG
 		printf("F:\n"); my_print_matrix(Fock);
 		printf("C:\n"); my_print_matrix(Coef);
 		printf("P:\n"); my_print_matrix(D);
 #endif
-
 
 		// check convergence
 		double delta_E = ene_total - ene_prev;
@@ -426,11 +424,9 @@ int main(int argc, char* argv[])
 		if (iter > 1) { fprintf(stdout, " %20.10f", delta_DIIS); }
 		fprintf(stdout, "\n");
 
-
 		// convergence criteria
 		if (fabs(delta_E) < 1.0e-10 &&
 			rms_D < 1.0e-8 && delta_DIIS < 1.0e-8) { break; }
-
 
 		// update energy and density matrix for the next iteration
 		ene_prev = ene_total;
@@ -442,7 +438,6 @@ int main(int argc, char* argv[])
 
 	fprintf(stdout, "SCF converged! E_total = %20.10f\n", ene_total);
 
-
 	fprintf(stdout, "%5s %10s %15s %12s\n", "MO", "State", "E(Eh)", "E(eV)");
 	for (ibasis = 0; ibasis < p_basis->num; ++ ibasis)
 	{
@@ -450,12 +445,13 @@ int main(int argc, char* argv[])
 		if (ibasis < n_occ) { strcpy(occ, "occ."); }
 		else { strcpy(occ, "virt."); }
 
-		// CODATA 2014: 1 Hartree = 27.21138602 eV
 		double ener = gsl_vector_get(emo, ibasis);
 		fprintf(stdout, "%5d %10s %15.5f %12.2f\n",
-				ibasis + 1, occ, ener, ener * 27.21138602);
+				ibasis + 1, occ, ener, ener * HARTREE2EV);
 	}
 
+
+	//====== free allocated memories ========
 
 	// free DIIS error and Fock matrices
 	for (idiis = 0; idiis < MAX_DIIS_DIM; ++ idiis)
@@ -471,7 +467,6 @@ int main(int argc, char* argv[])
 	free(diis_err);
 	free(diis_Fock);
 
-
 	// free arrays for one- and two-electron integral
 	gsl_matrix_free(S);
 	gsl_matrix_free(T);
@@ -479,7 +474,6 @@ int main(int argc, char* argv[])
 	free(ERI);
 
 	//gsl_matrix_free(Q);
-
 
 	// free arrays for geometry
 	for (iatom = 0; iatom < p_atom->num; ++ iatom)
@@ -491,7 +485,6 @@ int main(int argc, char* argv[])
 	free(p_atom->name);
 
 	free(p_atom->nuc_chg);
-
 
 	// free arrays for basis set
 	for (ibasis = 0; ibasis < p_basis->num; ++ ibasis)
@@ -511,6 +504,7 @@ int main(int argc, char* argv[])
 	free(p_basis->nprims);
 
 
+	//====== the end of program ========
+
 	return 0;
 }
-
