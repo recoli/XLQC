@@ -238,9 +238,10 @@ void form_G(int nbasis, gsl_matrix *D_prev, double *ERI, gsl_matrix *G)
 	   			for (sig=0; sig < nbasis; sig++)
 				{
 					int mnls = ijkl2intindex(mu, nu, lam, sig);
-					int msln = ijkl2intindex(mu, sig, lam, nu);
+					//int msln = ijkl2intindex(mu, sig, lam, nu);
+					int mlns = ijkl2intindex(mu, lam, nu, sig);
 					val += gsl_matrix_get(D_prev, lam, sig) * 
-							(ERI[mnls] - 0.5 * ERI[msln]);
+							(ERI[mnls] - 0.5 * ERI[mlns]);
 				}
 			}
 			gsl_matrix_set(G, mu, nu, val);

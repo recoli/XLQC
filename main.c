@@ -137,9 +137,9 @@ int main(int argc, char* argv[])
 	gsl_matrix *V = gsl_matrix_alloc(nbasis, nbasis);
 
 	// two-electron ingetral
-	int n_combi = nbasis * (nbasis + 1) / 2;
-	int n_eri = n_combi * (n_combi + 1) / 2;
-	double *ERI = (double *)my_malloc(sizeof(double) * n_eri);
+	//int n_combi = nbasis * (nbasis + 1) / 2;
+	//int n_eri = n_combi * (n_combi + 1) / 2;
+	//double *ERI = (double *)my_malloc(sizeof(double) * n_eri);
 
 
 	int a,b,c,d;
@@ -182,6 +182,7 @@ int main(int argc, char* argv[])
 			}
 
 
+			/*
 			int ij = ij2intindex(a, b);
 			// two-electron integral
 			for (c = 0; c < nbasis; ++ c)
@@ -194,14 +195,6 @@ int main(int argc, char* argv[])
 					int ijkl = ij2intindex(ij, kl);
 
 					double eri;
-					/*
-					eri = rys_contr_coulomb(
-						  nprims[a], expon[a], coef[a], norm[a], xbas[a][0], xbas[a][1], xbas[a][2], lmn[a][0], lmn[a][1], lmn[a][2],
-						  nprims[b], expon[b], coef[b], norm[b], xbas[b][0], xbas[b][1], xbas[b][2], lmn[b][0], lmn[b][1], lmn[b][2],
-						  nprims[c], expon[c], coef[c], norm[c], xbas[c][0], xbas[c][1], xbas[c][2], lmn[c][0], lmn[c][1], lmn[c][2],
-						  nprims[d], expon[d], coef[d], norm[d], xbas[d][0], xbas[d][1], xbas[d][2], lmn[d][0], lmn[d][1], lmn[d][2]);
-					*/
-
 					// use HGP for two-electron integrals
 					eri = contr_hrr(
 						  nprims[a], xbas[a][0], xbas[a][1], xbas[a][2], norm[a], lmn[a][0], lmn[a][1], lmn[a][2], expon[a], coef[a],
@@ -212,6 +205,7 @@ int main(int argc, char* argv[])
 					ERI[ijkl] = eri;
 				}
 			}
+			*/
 		}
 	}
 
@@ -328,20 +322,19 @@ int main(int argc, char* argv[])
 
 
 		//form_G(nbasis, D_prev, ERI, G);
-		// ERI
 		gsl_matrix_set_zero(G);
-		for (a=0; a < nbasis; a++)
+		for (a = 0; a < nbasis; ++ a)
 		{
-			for (b=0; b < nbasis; b++)
+			for (b = 0; b <= a; ++ b)
 			{
-				//int ij = ij2intindex(a, b);
+				int ij = ij2intindex(a, b);
 
-				for (c=0; c < nbasis; c++)
+				for (c = 0; c < nbasis; ++ c)
 				{
-					for (d=0; d < nbasis; d++)
+					for (d = 0; d <= c; ++ d)
 					{
-						//int kl = ij2intindex(c, d);
-						//if (ij < kl) { continue; }
+						int kl = ij2intindex(c, d);
+						if (ij < kl) { continue; }
 
 						double eri;
 						eri = contr_hrr(
@@ -355,18 +348,67 @@ int main(int argc, char* argv[])
 							  norm[d], lmn[d][0], lmn[d][1], lmn[d][2], expon[d], coef[d]);
 
 						// ab|cd  -->  G_ab += D_cd * ERI_abcd
-						gsl_matrix_set(G,a,b, gsl_matrix_get(G,a,b) + gsl_matrix_get(D_prev,c,d) * eri);
-
 						// ab|cd  -->  G_ac -= 0.5 * D_bd * ERI_abcd
+						gsl_matrix_set(G,a,b, gsl_matrix_get(G,a,b) + gsl_matrix_get(D_prev,c,d) * eri);
 						gsl_matrix_set(G,a,c, gsl_matrix_get(G,a,c) - 0.5 * gsl_matrix_get(D_prev,b,d) * eri);
+
+						// ba|cd  -->  G_ba += D_cd * ERI_abcd
+						// ba|cd  -->  G_bc -= 0.5 * D_ad * ERI_abcd
+						if (a != b)
+						{
+							gsl_matrix_set(G,b,a, gsl_matrix_get(G,b,a) + gsl_matrix_get(D_prev,c,d) * eri);
+							gsl_matrix_set(G,b,c, gsl_matrix_get(G,b,c) - 0.5 * gsl_matrix_get(D_prev,a,d) * eri);
+						}
+
+						// ab|dc  -->  G_ab += D_dc * ERI_abcd
+						// ab|dc  -->  G_ad -= 0.5 * D_bc * ERI_abcd
+						if (c != d)
+						{
+							gsl_matrix_set(G,a,b, gsl_matrix_get(G,a,b) + gsl_matrix_get(D_prev,d,c) * eri);
+							gsl_matrix_set(G,a,d, gsl_matrix_get(G,a,d) - 0.5 * gsl_matrix_get(D_prev,b,c) * eri);
+						}
+
+						// ba|dc  -->  G_ba += D_dc * ERI_abcd
+						// ba|dc  -->  G_bd -= 0.5 * D_ac * ERI_abcd
+						if (a != b && c != d)
+						{
+							gsl_matrix_set(G,b,a, gsl_matrix_get(G,b,a) + gsl_matrix_get(D_prev,d,c) * eri);
+							gsl_matrix_set(G,b,d, gsl_matrix_get(G,b,d) - 0.5 * gsl_matrix_get(D_prev,a,c) * eri);
+						}
+
+						// ab<==>cd permutations
+						if (ij != kl)
+						{
+							gsl_matrix_set(G,c,d, gsl_matrix_get(G,c,d) + gsl_matrix_get(D_prev,a,b) * eri);
+							gsl_matrix_set(G,c,a, gsl_matrix_get(G,c,a) - 0.5 * gsl_matrix_get(D_prev,d,b) * eri);
+
+							if (c != d)
+							{
+								gsl_matrix_set(G,d,c, gsl_matrix_get(G,d,c) + gsl_matrix_get(D_prev,a,b) * eri);
+								gsl_matrix_set(G,d,a, gsl_matrix_get(G,d,a) - 0.5 * gsl_matrix_get(D_prev,c,b) * eri);
+							}
+
+							if (a != b)
+							{
+								gsl_matrix_set(G,c,d, gsl_matrix_get(G,c,d) + gsl_matrix_get(D_prev,b,a) * eri);
+								gsl_matrix_set(G,c,b, gsl_matrix_get(G,c,b) - 0.5 * gsl_matrix_get(D_prev,d,a) * eri);
+							}
+
+							if (c != d && a != b)
+							{
+								gsl_matrix_set(G,d,c, gsl_matrix_get(G,d,c) + gsl_matrix_get(D_prev,b,a) * eri);
+								gsl_matrix_set(G,d,b, gsl_matrix_get(G,d,b) - 0.5 * gsl_matrix_get(D_prev,c,a) * eri);
+							}
+						}
 					}
 				}
 			}
 		}
 
+#ifdef DEBUG
 		printf("G:\n");
 		my_print_matrix(G);
-
+#endif
 
 
 		form_Fock(nbasis, H_core, G, Fock);
@@ -555,7 +597,7 @@ int main(int argc, char* argv[])
 	gsl_matrix_free(S);
 	gsl_matrix_free(T);
 	gsl_matrix_free(V);
-	free(ERI);
+	//free(ERI);
 
 
 	// free arrays for geometry
