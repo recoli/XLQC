@@ -84,10 +84,10 @@ int get_nuc_chg(char *element)
 int get_natoms(void)
 {
 	FILE *f_geom;
-	f_geom = fopen("geom.dat","r");
+	f_geom = fopen("example/geom.xyz","r");
 	if (NULL == f_geom)
 	{
-		fprintf(stderr, "Error: cannot open file geom.dat!\n");
+		fprintf(stderr, "Error: cannot open file example/geom.xyz!\n");
 		exit(1);
 	}
 
@@ -100,7 +100,7 @@ int get_natoms(void)
 	}
 	else
 	{
-		fprintf(stderr, "Error in the first line of geom.dat!\n");
+		fprintf(stderr, "Error in the first line of example/geom.xyz!\n");
 		exit(1);
 	}
 }
@@ -111,10 +111,10 @@ int get_natoms(void)
 void read_geom(Atom *p_atom)
 {
 	FILE *f_geom;
-	f_geom = fopen("geom.dat","r");
+	f_geom = fopen("example/geom.xyz","r");
 	if (NULL == f_geom)
 	{
-		fprintf(stderr, "Error: cannot open file geom.dat!\n");
+		fprintf(stderr, "Error: cannot open file example/geom.xyz!\n");
 		exit(1);
 	}
 
@@ -180,7 +180,7 @@ double calc_ene_nucl(Atom *p_atom)
 void parse_basis(Atom *p_atom, Basis *p_basis)
 {
 	FILE *f_basis;
-	f_basis = fopen("basis.dat","r");
+	f_basis = fopen("example/basis.dat","r");
 	if (NULL == f_basis)
 	{
 		fprintf(stderr, "Error: cannot open file basis.dat!\n");
@@ -234,7 +234,7 @@ void parse_basis(Atom *p_atom, Basis *p_basis)
 
 		// write basis functions for this element to a separate file
 		char elem_file[MAX_STR_LEN];
-		sprintf(elem_file, "basis_%s.dat", elem_name);
+		sprintf(elem_file, "example/basis_%s.dat", elem_name);
 
 		FILE *f_elem;
 		f_elem = fopen(elem_file,"w");
@@ -304,7 +304,7 @@ void parse_basis(Atom *p_atom, Basis *p_basis)
 
 	// write basis functions for each atom into basis_all.dat
 	FILE *f_basis_all;
-	f_basis_all = fopen("basis_all.dat", "w");
+	f_basis_all = fopen("example/basis_all.dat", "w");
 	if (NULL == f_basis_all)
 	{
 		fprintf(stderr, "Error: cannot write to file basis_all.dat!\n");
@@ -336,7 +336,7 @@ void parse_basis(Atom *p_atom, Basis *p_basis)
 		// read basis set for this atom
 		// and write to basis_all.dat
 		char atom_file[MAX_STR_LEN];
-		sprintf(atom_file, "basis_%s.dat", p_atom->name[iatom]);
+		sprintf(atom_file, "example/basis_%s.dat", p_atom->name[iatom]);
 
 		FILE *f_atom;
 		f_atom = fopen(atom_file,"r");
@@ -368,7 +368,7 @@ void parse_basis(Atom *p_atom, Basis *p_basis)
 void read_basis(Atom *p_atom, Basis *p_basis)
 {
 	FILE *f_basis_all;
-	f_basis_all = fopen("basis_all.dat","r");
+	f_basis_all = fopen("example/basis_all.dat","r");
 	if (NULL == f_basis_all)
 	{
 		fprintf(stderr, "Error: cannot open file basis_all.dat!\n");
