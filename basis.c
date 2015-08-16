@@ -382,24 +382,12 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 	int iatom = 0;
 
 	// Cartesian l,m,n
-	double arr_s_lmn[N_S * CART_DIM]   = {0,0,0};
-	double arr_sp_lmn[N_SP * CART_DIM] = {0,0,0, 1,0,0, 0,1,0, 0,0,1};
-	double arr_p_lmn[N_P * CART_DIM]   = {1,0,0, 0,1,0, 0,0,1};
-	double arr_d_lmn[N_D * CART_DIM]   = {2,0,0, 1,1,0, 1,0,1, 0,2,0, 0,1,1, 0,0,2};
-	double arr_f_lmn[N_F * CART_DIM]   = {3,0,0, 2,1,0, 2,0,1, 1,2,0, 1,1,1, 1,0,2,
-										  0,3,0, 0,2,1, 0,1,2, 0,0,3};
-
-	gsl_matrix_view mat_s_lmn  = gsl_matrix_view_array (arr_s_lmn,  N_S,  CART_DIM);
-	gsl_matrix_view mat_sp_lmn = gsl_matrix_view_array (arr_sp_lmn, N_SP, CART_DIM);
-	gsl_matrix_view mat_p_lmn  = gsl_matrix_view_array (arr_p_lmn,  N_P,  CART_DIM);
-	gsl_matrix_view mat_d_lmn  = gsl_matrix_view_array (arr_d_lmn,  N_D,  CART_DIM);
-	gsl_matrix_view mat_f_lmn  = gsl_matrix_view_array (arr_f_lmn,  N_F,  CART_DIM);
-
-	gsl_matrix *s_lmn  = &mat_s_lmn.matrix;
-	gsl_matrix *sp_lmn = &mat_sp_lmn.matrix;
-	gsl_matrix *p_lmn  = &mat_p_lmn.matrix;
-	gsl_matrix *d_lmn  = &mat_d_lmn.matrix;
-	gsl_matrix *f_lmn  = &mat_f_lmn.matrix;
+	int s_lmn[N_S * CART_DIM]   = {0,0,0};
+	int sp_lmn[N_SP * CART_DIM] = {0,0,0,  1,0,0,  0,1,0,  0,0,1};
+	int p_lmn[N_P * CART_DIM]   = {1,0,0,  0,1,0,  0,0,1};
+	int d_lmn[N_D * CART_DIM]   = {2,0,0,  1,1,0,  1,0,1,  0,2,0,  0,1,1,  0,0,2};
+	int f_lmn[N_F * CART_DIM]   = {3,0,0,  2,1,0,  2,0,1,  1,2,0,  1,1,1,  1,0,2,
+								   0,3,0,  0,2,1,  0,1,2,  0,0,3};
 
 	// loop over elements
 	while (1)
@@ -421,12 +409,13 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 				if (0 == strcmp(cart_type, "****")) { break; }
 
 				int N = 0;
-				gsl_matrix *ptr_lmn;
-				if      (0 == strcmp(cart_type, "S"))  { N = N_S;  ptr_lmn = s_lmn;  }
-				else if (0 == strcmp(cart_type, "SP")) { N = N_SP; ptr_lmn = sp_lmn; }
-				else if (0 == strcmp(cart_type, "P"))  { N = N_P;  ptr_lmn = p_lmn;  }
-				else if (0 == strcmp(cart_type, "D"))  { N = N_D;  ptr_lmn = d_lmn;  }
-				else if (0 == strcmp(cart_type, "F"))  { N = N_F;  ptr_lmn = f_lmn;  }
+				int num_basis = 0;
+				int *ptr_lmn = NULL;
+				if      (0 == strcmp(cart_type, "S"))  { N = N_S;  ptr_lmn = &s_lmn[0];  num_basis =  1; }
+				else if (0 == strcmp(cart_type, "SP")) { N = N_SP; ptr_lmn = &sp_lmn[0]; num_basis =  4; }
+				else if (0 == strcmp(cart_type, "P"))  { N = N_P;  ptr_lmn = &p_lmn[0];  num_basis =  3; }
+				else if (0 == strcmp(cart_type, "D"))  { N = N_D;  ptr_lmn = &d_lmn[0];  num_basis =  6; }
+				else if (0 == strcmp(cart_type, "F"))  { N = N_F;  ptr_lmn = &f_lmn[0];  num_basis = 10; }
 
 				int iprim;
 				for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
@@ -452,7 +441,7 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 								for (kk = 0; kk < CART_DIM; ++ kk)
 								{
 									p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
-									p_basis->lmn[ibasis + ii][kk] = (int)gsl_matrix_get(ptr_lmn,ii,kk);
+									p_basis->lmn[ibasis + ii][kk] = ptr_lmn[ii * CART_DIM + kk];
 								}
 							}
 						}
@@ -473,11 +462,7 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 					}
 				}
 
-				if      (0 == strcmp(cart_type, "S"))  { ibasis += 1; }
-				else if (0 == strcmp(cart_type, "SP")) { ibasis += 4; }
-				else if (0 == strcmp(cart_type, "P"))  { ibasis += 3; }
-				else if (0 == strcmp(cart_type, "D"))  { ibasis += 6; }
-				else if (0 == strcmp(cart_type, "F"))  { ibasis += 10; }
+				ibasis += num_basis;
 			}
 		}
 
