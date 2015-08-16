@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <gsl/gsl_matrix.h>
+#include <gsl/gsl_linalg.h>
+
 #include "typedef.h"
 #include "int_lib/cints.h"
 #include "int_lib/chgp.h"
@@ -369,6 +372,26 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 	int ibasis = 0;
 	int iatom = 0;
 
+	// Cartesian l,m,n
+	double arr_s_lmn[N_S * CART_DIM]   = {0,0,0};
+	double arr_sp_lmn[N_SP * CART_DIM] = {0,0,0, 1,0,0, 0,1,0, 0,0,1};
+	double arr_p_lmn[N_P * CART_DIM]   = {1,0,0, 0,1,0, 0,0,1};
+	double arr_d_lmn[N_D * CART_DIM]   = {2,0,0, 1,1,0, 1,0,1, 0,2,0, 0,1,1, 0,0,2};
+	double arr_f_lmn[N_F * CART_DIM]   = {3,0,0, 2,1,0, 2,0,1, 1,2,0, 1,1,1, 1,0,2,
+										  0,3,0, 0,2,1, 0,1,2, 0,0,3};
+
+	gsl_matrix_view mat_s_lmn  = gsl_matrix_view_array (arr_s_lmn,  N_S,  CART_DIM);
+	gsl_matrix_view mat_sp_lmn = gsl_matrix_view_array (arr_sp_lmn, N_SP, CART_DIM);
+	gsl_matrix_view mat_p_lmn  = gsl_matrix_view_array (arr_p_lmn,  N_P,  CART_DIM);
+	gsl_matrix_view mat_d_lmn  = gsl_matrix_view_array (arr_d_lmn,  N_D,  CART_DIM);
+	gsl_matrix_view mat_f_lmn  = gsl_matrix_view_array (arr_f_lmn,  N_F,  CART_DIM);
+
+	gsl_matrix *s_lmn  = &mat_s_lmn.matrix;
+	gsl_matrix *sp_lmn = &mat_sp_lmn.matrix;
+	gsl_matrix *p_lmn  = &mat_p_lmn.matrix;
+	gsl_matrix *d_lmn  = &mat_d_lmn.matrix;
+	gsl_matrix *f_lmn  = &mat_f_lmn.matrix;
+
 	// loop over elements
 	while (1)
 	{
@@ -388,179 +411,54 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 
 				if (0 == strcmp(cart_type, "****")) { break; }
 
+				int N = 0;
+				gsl_matrix *ptr_lmn;
+				if      (0 == strcmp(cart_type, "S"))  { N = N_S;  ptr_lmn = s_lmn;  }
+				else if (0 == strcmp(cart_type, "SP")) { N = N_SP; ptr_lmn = sp_lmn; }
+				else if (0 == strcmp(cart_type, "P"))  { N = N_P;  ptr_lmn = p_lmn;  }
+				else if (0 == strcmp(cart_type, "D"))  { N = N_D;  ptr_lmn = d_lmn;  }
+				else if (0 == strcmp(cart_type, "F"))  { N = N_F;  ptr_lmn = f_lmn;  }
+
 				int iprim;
 				for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
 				{
 					if (fgets(line, MAX_STR_LEN, f_basis_all) != NULL)
 					{
-						// S
-						if (0 == strcmp(cart_type, "S"))
+						double expon_1, coef_1, coef_2;
+						coef_2 = 0.0;
+						sscanf(line, "%lf%lf%lf", &expon_1, &coef_1, &coef_2);
+
+						int ii, kk;
+						if (0 == iprim)
 						{
-							double expon_s, coef_s;
-							sscanf(line, "%lf%lf", &expon_s, &coef_s);
-
-							int ii, kk;
-							int s_lmn[N_S][3] = {{0,0,0}};
-
-							// S
-							if (0 == iprim)
+							for (ii = 0; ii < N; ++ ii)
 							{
-								for (ii = 0; ii < N_S; ++ ii)
+								if (ii > 0) { p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis]; }
+
+								p_basis->expon[ibasis + ii] = 
+									(double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
+								p_basis->coef[ibasis + ii]  = 
+									(double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
+
+								for (kk = 0; kk < CART_DIM; ++ kk)
 								{
-									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
-									p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-									p_basis->coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-
-									for (kk = 0; kk < CART_DIM; ++ kk)
-									{
-										p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
-										p_basis->lmn[ibasis + ii][kk] = s_lmn[ii][kk];
-									}
+									p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
+									p_basis->lmn[ibasis + ii][kk] = (int)gsl_matrix_get(ptr_lmn,ii,kk);
 								}
-							}
-
-							for (ii = 0; ii < N_S; ++ ii)
-							{
-								p_basis->expon[ibasis + ii][iprim] = expon_s;
-								p_basis->coef[ibasis + ii][iprim] = coef_s;
-							}
-						}
-						
-						// SP
-						else if (0 == strcmp(cart_type, "SP"))
-						{
-							double expon_sp, coef_s, coef_p;
-							sscanf(line, "%lf%lf%lf", &expon_sp, &coef_s, &coef_p);
-
-							int ii, kk;
-							int sp_lmn[N_SP][3] = {{0,0,0}, {1,0,0}, {0,1,0}, {0,0,1}};
-
-							// S, Px, Py, Pz
-							if (0 == iprim)
-							{
-								for (ii = 0; ii < N_SP; ++ ii)
-								{
-									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
-									p_basis->expon[ibasis + ii] = 
-										(double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-									p_basis->coef[ibasis + ii]  = 
-										(double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-
-									for (kk = 0; kk < CART_DIM; ++ kk)
-									{
-										p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
-										p_basis->lmn[ibasis + ii][kk] = sp_lmn[ii][kk];
-									}
-								}
-							}
-
-							for (ii = 0; ii < N_SP; ++ ii)
-							{
-								p_basis->expon[ibasis + ii][iprim] = expon_sp;
-								if (0 == ii) { p_basis->coef[ibasis + ii][iprim] = coef_s; }
-								else         { p_basis->coef[ibasis + ii][iprim] = coef_p; }
-							}
-						}
-						
-						// P
-						else if (0 == strcmp(cart_type, "P"))
-						{
-							double expon_p, coef_p;
-							sscanf(line, "%lf%lf", &expon_p, &coef_p);
-
-							int ii, kk;
-							int p_lmn[N_P][3] = {{1,0,0}, {0,1,0}, {0,0,1}};
-
-							// Px, Py, Pz
-							if (0 == iprim)
-							{
-								for (ii = 0; ii < N_P; ++ ii)
-								{
-									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
-									p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-									p_basis->coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-
-									for (kk = 0; kk < CART_DIM; ++ kk)
-									{
-										p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
-										p_basis->lmn[ibasis + ii][kk] = p_lmn[ii][kk];
-									}
-								}
-							}
-
-							for (ii = 0; ii < N_P; ++ ii)
-							{
-								p_basis->expon[ibasis + ii][iprim] = expon_p;
-								p_basis->coef[ibasis + ii][iprim] = coef_p;
 							}
 						}
 
-						// D
-						else if (0 == strcmp(cart_type, "D"))
+						for (ii = 0; ii < N; ++ ii)
 						{
-							double expon_d, coef_d;
-							sscanf(line, "%lf%lf", &expon_d, &coef_d);
+							p_basis->expon[ibasis + ii][iprim] = expon_1;
 
-							int ii, kk;
-							int d_lmn[N_D][3] = {{2,0,0}, {1,1,0}, {1,0,1},
-											   {0,2,0}, {0,1,1}, {0,0,2}};
-
-							// Dx2, Dxy, Dxz, Dy2, Dyz, Dz2
-							if (0 == iprim)
+							if (0 == strcmp(cart_type, "SP") && ii > 0) 
 							{
-								for (ii = 0; ii < N_D; ++ ii)
-								{
-									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
-									p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-									p_basis->coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-
-									for (kk = 0; kk < CART_DIM; ++ kk)
-									{
-										p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
-										p_basis->lmn[ibasis + ii][kk] = d_lmn[ii][kk];
-									}
-								}
+								p_basis->coef[ibasis + ii][iprim] = coef_2;
 							}
-
-							for (ii = 0; ii < N_D; ++ ii)
+							else
 							{
-								p_basis->expon[ibasis + ii][iprim] = expon_d;
-								p_basis->coef[ibasis + ii][iprim] = coef_d;
-							}
-						}
-
-						// F
-						else if (0 == strcmp(cart_type, "F"))
-						{
-							double expon_f, coef_f;
-							sscanf(line, "%lf%lf", &expon_f, &coef_f);
-
-							int ii, kk;
-							int f_lmn[N_F][3] = {{3,0,0}, {2,1,0}, {2,0,1},
-												{1,2,0}, {1,1,1}, {1,0,2},
-												{0,3,0}, {0,2,1}, {0,1,2}, {0,0,3}};
-
-							// Fx3, Fx2y, Fx2z, Fxy2, Fxyz, Fxz2, Fy3, Fy2z, Fyz2, Fz3
-							if (0 == iprim)
-							{
-								for (ii = 0; ii < N_F; ++ ii)
-								{
-									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
-									p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-									p_basis->coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-
-									for (kk = 0; kk < CART_DIM; ++ kk)
-									{
-										p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
-										p_basis->lmn[ibasis + ii][kk] = f_lmn[ii][kk];
-									}
-								}
-							}
-
-							for (ii = 0; ii < N_F; ++ ii)
-							{
-								p_basis->expon[ibasis + ii][iprim] = expon_f;
-								p_basis->coef[ibasis + ii][iprim] = coef_f;
+								p_basis->coef[ibasis + ii][iprim] = coef_1;
 							}
 						}
 					}
@@ -612,8 +510,9 @@ void print_basis(Basis *p_basis)
 		int iprim;
 		for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
 		{
-			printf("%16.8f%16.8f\n", 
-					p_basis->expon[ibasis][iprim], p_basis->coef[ibasis][iprim]);
+			printf("%16.8f%16.8f%5d%5d%5d\n", 
+					p_basis->expon[ibasis][iprim], p_basis->coef[ibasis][iprim],
+					p_basis->lmn[ibasis][0], p_basis->lmn[ibasis][1], p_basis->lmn[ibasis][2]);
 		}
 	}
 }
