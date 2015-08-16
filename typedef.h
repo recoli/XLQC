@@ -20,6 +20,7 @@
 // Cartesian dimension
 #define CART_DIM 3
 
+// number of basis functions
 #define N_S   1
 #define N_SP  4
 #define N_P   3
@@ -37,23 +38,11 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-// 2.0 * M_PI
-#define TWO_PI 6.28318530717959
-
-// 1.0 / sqrt(M_PI)
-#define INV_SQRT_PI 0.564189583547756
-
-// CODATA 2014: 1 Hartree = 27.21138602 eV
+// CODATA 2014: 
+// 1 Hartree = 27.21138602 eV
+// 1 Bohr = 0.52917721067 Angstrom
 #define HARTREE2EV 27.21138602
-
-// 1.0 eV = 96.4853363969351 kJ/mol
-#define EV2KJMOL 96.4853363969351
-
-// 1.0 Angstrom = 1.88972612456506 Bohr
-#define AA2BOHR 1.88972612456506
-
-// Boltzmann constant, in kJ mol^-1 K^-1
-#define K_BOLTZ 0.00831446214546895
+#define BOHR2ANGSTROM 0.52917721067
 
 // vector
 typedef struct {

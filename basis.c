@@ -27,11 +27,11 @@ void* my_malloc(size_t bytes)
 void* my_malloc_2(size_t bytes, char *word)
 {
     void* ptr = malloc(bytes);
-    printf("size of alloc (%s) = %zu MB\n", word, bytes / 1000000);
+    fprintf(stdout, "size of alloc (%s) = %zu MB\n", word, bytes / 1000000);
 
     if(ptr == NULL) 
     {
-        printf ("Error: could not allocate memory for %s !\n", word);
+        fprintf(stderr, "Error: could not allocate memory for %s !\n", word);
         exit(1);
     } 
     else 
@@ -132,13 +132,22 @@ void read_geom(Atom *p_atom)
 		exit(1);
 	}
 
+	// read comment line
+	if (fgets(line, MAX_STR_LEN, f_geom) != NULL) {}
+
 	int iatom;
 	for (iatom = 0; iatom < natoms; ++ iatom)
 	{
 		if (fgets(line, MAX_STR_LEN, f_geom) != NULL)
 		{
-			sscanf(line, "%s%lf%lf%lf", p_atom->name[iatom], 
-					&p_atom->pos[iatom][0], &p_atom->pos[iatom][1], &p_atom->pos[iatom][2]);
+			// read coordinates in Angstrom
+			double rx, ry, rz;
+			sscanf(line, "%s%lf%lf%lf", p_atom->name[iatom], &rx, &ry, &rz);
+
+			// save coordinates in Bohr
+			p_atom->pos[iatom][0] = rx / BOHR2ANGSTROM;
+			p_atom->pos[iatom][1] = ry / BOHR2ANGSTROM;
+			p_atom->pos[iatom][2] = rz / BOHR2ANGSTROM;
 
 			p_atom->nuc_chg[iatom] = get_nuc_chg(p_atom->name[iatom]);
 		}
@@ -278,7 +287,7 @@ void parse_basis(Atom *p_atom, Basis *p_basis)
 		}
 
 		fclose(f_elem);
-		printf("Element %s   Nbasis %d\n", elem_name, elem_n_basis[ielem]);
+		fprintf(stdout, "Element %s   Nbasis %d\n", elem_name, elem_n_basis[ielem]);
 
 		// update counter for elements
 		++ ielem;

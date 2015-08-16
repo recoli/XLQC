@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
 
 	// get number of atoms
 	p_atom->num = get_natoms();
-	printf("Natoms = %d\n", p_atom->num);
+	fprintf(stdout, "Natoms = %d\n", p_atom->num);
 
 	// atomic coordinates and atom name
 	p_atom->pos = (double **)my_malloc(sizeof(double *) * p_atom->num);
@@ -45,9 +45,10 @@ int main(int argc, char* argv[])
 	// read atomic positions, nuclear charge and atom name
 	read_geom(p_atom);
 
+	fprintf(stdout, "Coordinates in atomic unit:\n");
 	for (iatom = 0; iatom < p_atom->num; ++ iatom)
 	{
-		printf("%s (%.1f)  %.10f  %.10f  %.10f\n", 
+		fprintf(stdout, "%s (%.1f)  %.10f  %.10f  %.10f\n", 
 				p_atom->name[iatom], (double)p_atom->nuc_chg[iatom],
 				p_atom->pos[iatom][0], p_atom->pos[iatom][1], p_atom->pos[iatom][2]);
 	}
@@ -62,7 +63,7 @@ int main(int argc, char* argv[])
 	// parse basis functions
 	parse_basis(p_atom, p_basis);
 
-	printf("System Nbasis = %d\n", p_basis->num);
+	fprintf(stdout, "System Nbasis = %d\n", p_basis->num);
 
 	// basis function exponents, coefficients, and normalization factors
 	p_basis->expon = (double **)my_malloc(sizeof(double *) * p_basis->num);
@@ -250,8 +251,7 @@ int main(int argc, char* argv[])
 		//direct_form_G(p_basis, D_prev, Q, G);
 
 #ifdef DEBUG
-		printf("G:\n");
-		my_print_matrix(G);
+		printf("G:\n"); my_print_matrix(G);
 #endif
 
 		form_Fock(p_basis->num, H_core, G, Fock);

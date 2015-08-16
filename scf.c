@@ -52,7 +52,7 @@ void my_eigen_symmv(gsl_matrix* data, int DIM,
 {
 	if ( DIM <= 0 || data[0].size1 != DIM || data[0].size2 != DIM )
 	{
-	   printf ("Error: incorrect DIM in my_eigen_symmv!\n");
+	   fprintf(stderr, "Error: incorrect DIM in my_eigen_symmv!\n");
 	   exit(1);
 	}
 
