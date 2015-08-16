@@ -350,6 +350,16 @@ int main(int argc, char* argv[])
 
 	//gsl_matrix_free(Q);
 
+	// free matrices and vector for SCF
+	gsl_matrix_free(H_core);
+	gsl_matrix_free(S_invsqrt);
+	gsl_matrix_free(D_prev);
+	gsl_matrix_free(G);
+	gsl_matrix_free(Fock);
+	gsl_matrix_free(Coef);
+	gsl_matrix_free(D);
+	gsl_vector_free(emo);
+
 	// free arrays for geometry
 	for (iatom = 0; iatom < p_atom->num; ++ iatom)
 	{

@@ -172,12 +172,6 @@ void Fock_to_Coef(int nbasis, gsl_matrix *Fock, gsl_matrix *S_invsqrt,
 	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, S_invsqrt, Coef_p, 0.0, Coef);
 
 
-	gsl_matrix *t1 = gsl_matrix_alloc(nbasis, nbasis);
-	gsl_matrix *t2 = gsl_matrix_alloc(nbasis, nbasis);
-	gsl_blas_dgemm (CblasTrans, CblasNoTrans, 1.0, Coef_p, Fock_p, 0.0, t1);
-	gsl_blas_dgemm (CblasNoTrans, CblasNoTrans, 1.0, t1, Coef_p, 0.0, t2);
-
-
 	gsl_matrix_free (prod);
 	gsl_matrix_free (Fock_p);
 	gsl_matrix_free (Coef_p);
