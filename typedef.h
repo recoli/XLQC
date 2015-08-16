@@ -20,6 +20,12 @@
 // Cartesian dimension
 #define CART_DIM 3
 
+#define N_S   1
+#define N_SP  4
+#define N_P   3
+#define N_D   6
+#define N_F  10
+
 // maximal number of DIIS error matrices
 #define MAX_DIIS_DIM 6
 

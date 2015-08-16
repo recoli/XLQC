@@ -399,57 +399,13 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 							double expon_s, coef_s;
 							sscanf(line, "%lf%lf", &expon_s, &coef_s);
 
-							// at the beginning, allocate memories for p_basis->expon and p_basis->coef
-							// also assign xbas (center of basis funct) and Cartesian lmn
-							if (0 == iprim)
-							{
-								p_basis->expon[ibasis] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-								p_basis->coef[ibasis]  = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-
-								p_basis->xbas[ibasis][0] = p_atom->pos[iatom][0];
-								p_basis->xbas[ibasis][1] = p_atom->pos[iatom][1];
-								p_basis->xbas[ibasis][2] = p_atom->pos[iatom][2];
-
-								p_basis->lmn[ibasis][0] = 0;
-								p_basis->lmn[ibasis][1] = 0;
-								p_basis->lmn[ibasis][2] = 0;
-							}
-
-							p_basis->expon[ibasis][iprim] = expon_s;
-							p_basis->coef[ibasis][iprim]  = coef_s;
-						}
-						
-						// SP
-						else if (0 == strcmp(cart_type, "SP"))
-						{
-							double expon_sp, coef_s, coef_p;
-							sscanf(line, "%lf%lf%lf", &expon_sp, &coef_s, &coef_p);
+							int ii, kk;
+							int s_lmn[N_S][3] = {{0,0,0}};
 
 							// S
 							if (0 == iprim)
 							{
-								p_basis->expon[ibasis] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-								p_basis->coef[ibasis]  = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-
-								p_basis->xbas[ibasis][0] = p_atom->pos[iatom][0];
-								p_basis->xbas[ibasis][1] = p_atom->pos[iatom][1];
-								p_basis->xbas[ibasis][2] = p_atom->pos[iatom][2];
-
-								p_basis->lmn[ibasis][0] = 0;
-								p_basis->lmn[ibasis][1] = 0;
-								p_basis->lmn[ibasis][2] = 0;
-							}
-
-							p_basis->expon[ibasis][iprim] = expon_sp;
-							p_basis->coef[ibasis][iprim]  = coef_s;
-
-							int ii, kk;
-							int p_lmn[3][3] = {{1,0,0}, {0,1,0}, {0,0,1}};
-
-							// Px, Py, Pz
-							if (0 == iprim)
-							{
-								for (ii = 1; ii <= 3; ++ ii)
+								for (ii = 0; ii < N_S; ++ ii)
 								{
 									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
 									p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
@@ -458,15 +414,51 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 									for (kk = 0; kk < CART_DIM; ++ kk)
 									{
 										p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
-										p_basis->lmn[ibasis + ii][kk] = p_lmn[ii - 1][kk]; // NOTE: ii-1, not ii!
+										p_basis->lmn[ibasis + ii][kk] = s_lmn[ii][kk];
 									}
 								}
 							}
 
-							for (ii = 1; ii <= 3; ++ ii)
+							for (ii = 0; ii < N_S; ++ ii)
+							{
+								p_basis->expon[ibasis + ii][iprim] = expon_s;
+								p_basis->coef[ibasis + ii][iprim] = coef_s;
+							}
+						}
+						
+						// SP
+						else if (0 == strcmp(cart_type, "SP"))
+						{
+							double expon_sp, coef_s, coef_p;
+							sscanf(line, "%lf%lf%lf", &expon_sp, &coef_s, &coef_p);
+
+							int ii, kk;
+							int sp_lmn[N_SP][3] = {{0,0,0}, {1,0,0}, {0,1,0}, {0,0,1}};
+
+							// S, Px, Py, Pz
+							if (0 == iprim)
+							{
+								for (ii = 0; ii < N_SP; ++ ii)
+								{
+									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
+									p_basis->expon[ibasis + ii] = 
+										(double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
+									p_basis->coef[ibasis + ii]  = 
+										(double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
+
+									for (kk = 0; kk < CART_DIM; ++ kk)
+									{
+										p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
+										p_basis->lmn[ibasis + ii][kk] = sp_lmn[ii][kk];
+									}
+								}
+							}
+
+							for (ii = 0; ii < N_SP; ++ ii)
 							{
 								p_basis->expon[ibasis + ii][iprim] = expon_sp;
-								p_basis->coef[ibasis + ii][iprim] = coef_p;
+								if (0 == ii) { p_basis->coef[ibasis + ii][iprim] = coef_s; }
+								else         { p_basis->coef[ibasis + ii][iprim] = coef_p; }
 							}
 						}
 						
@@ -477,12 +469,12 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 							sscanf(line, "%lf%lf", &expon_p, &coef_p);
 
 							int ii, kk;
-							int p_lmn[3][3] = {{1,0,0}, {0,1,0}, {0,0,1}};
+							int p_lmn[N_P][3] = {{1,0,0}, {0,1,0}, {0,0,1}};
 
 							// Px, Py, Pz
 							if (0 == iprim)
 							{
-								for (ii = 0; ii <= 2; ++ ii)
+								for (ii = 0; ii < N_P; ++ ii)
 								{
 									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
 									p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
@@ -496,7 +488,7 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 								}
 							}
 
-							for (ii = 0; ii <= 2; ++ ii)
+							for (ii = 0; ii < N_P; ++ ii)
 							{
 								p_basis->expon[ibasis + ii][iprim] = expon_p;
 								p_basis->coef[ibasis + ii][iprim] = coef_p;
@@ -510,13 +502,13 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 							sscanf(line, "%lf%lf", &expon_d, &coef_d);
 
 							int ii, kk;
-							int d_lmn[6][3] = {{2,0,0}, {1,1,0}, {1,0,1},
+							int d_lmn[N_D][3] = {{2,0,0}, {1,1,0}, {1,0,1},
 											   {0,2,0}, {0,1,1}, {0,0,2}};
 
 							// Dx2, Dxy, Dxz, Dy2, Dyz, Dz2
 							if (0 == iprim)
 							{
-								for (ii = 0; ii <= 5; ++ ii)
+								for (ii = 0; ii < N_D; ++ ii)
 								{
 									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
 									p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
@@ -530,7 +522,7 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 								}
 							}
 
-							for (ii = 0; ii <= 5; ++ ii)
+							for (ii = 0; ii < N_D; ++ ii)
 							{
 								p_basis->expon[ibasis + ii][iprim] = expon_d;
 								p_basis->coef[ibasis + ii][iprim] = coef_d;
@@ -544,14 +536,14 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 							sscanf(line, "%lf%lf", &expon_f, &coef_f);
 
 							int ii, kk;
-							int f_lmn[10][3] = {{3,0,0}, {2,1,0}, {2,0,1},
+							int f_lmn[N_F][3] = {{3,0,0}, {2,1,0}, {2,0,1},
 												{1,2,0}, {1,1,1}, {1,0,2},
 												{0,3,0}, {0,2,1}, {0,1,2}, {0,0,3}};
 
 							// Fx3, Fx2y, Fx2z, Fxy2, Fxyz, Fxz2, Fy3, Fy2z, Fyz2, Fz3
 							if (0 == iprim)
 							{
-								for (ii = 0; ii <= 9; ++ ii)
+								for (ii = 0; ii < N_F; ++ ii)
 								{
 									p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis];
 									p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
@@ -565,7 +557,7 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 								}
 							}
 
-							for (ii = 0; ii <= 9; ++ ii)
+							for (ii = 0; ii < N_F; ++ ii)
 							{
 								p_basis->expon[ibasis + ii][iprim] = expon_f;
 								p_basis->coef[ibasis + ii][iprim] = coef_f;
