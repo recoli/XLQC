@@ -1,12 +1,12 @@
-CC=gcc
-CFLAGS=-O3 -Wall -lgsl -lgslcblas
+CC=g++
+CFLAGS=-std=c++11 -O2 -Wall -lgsl -lgslcblas
 OBJ=basis.o scf.o main.o int_lib/crys.o int_lib/chgp.o int_lib/cints.o
 
-%.o: %.c
+%.o: %.cc
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 main: $(OBJ)
-	gcc -o $@ $^ $(CFLAGS)
+	g++ -o $@ $^ $(CFLAGS)
 
 clean:  
 	rm -f main *.o int_lib/*.o

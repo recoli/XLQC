@@ -20,7 +20,7 @@
 // allocate memory with failure checking
 void* my_malloc(size_t bytes);
 
-void* my_malloc_2(size_t bytes, char *word);
+void* my_malloc_2(size_t bytes, std::string word);
 
 // combination index
 int ij2intindex(int i, int j);

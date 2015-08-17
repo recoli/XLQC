@@ -22,6 +22,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <string>
+
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_linalg.h>
 
@@ -43,14 +45,14 @@ void* my_malloc(size_t bytes)
     return ptr;
 }
 
-void* my_malloc_2(size_t bytes, char *word)
+void* my_malloc_2(size_t bytes, std::string word)
 {
     void* ptr = malloc(bytes);
-    fprintf(stdout, "size of alloc (%s) = %zu MB\n", word, bytes / 1000000);
+    fprintf(stdout, "size of alloc (%s) = %zu MB\n", word.c_str(), bytes / 1000000);
 
     if(ptr == NULL) 
     {
-        fprintf(stderr, "Error: could not allocate memory for %s !\n", word);
+        fprintf(stderr, "Error: could not allocate memory for %s !\n", word.c_str());
         exit(1);
     } 
     else 
@@ -73,7 +75,7 @@ int ij2intindex(int i, int j)
 //===================================
 int get_nuc_chg(char *element)
 {
-	char *periodic[] = {"X", 
+	std::string *periodic = new std::string [89] {"X", 
 	"H",  "He", "Li", "Be", "B",  "C",  "N",  "O",  "F",  "Ne", 
 	"Na", "Mg", "Al", "Si", "P",  "S",  "Cl", "Ar", "K",  "Ca", 
 	"Sc", "Ti", "V",  "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", 
@@ -84,10 +86,12 @@ int get_nuc_chg(char *element)
 	"Lu", "Hf", "Ta", "W",  "Re", "Os", "Ir", "Pt", "Au", "Hg", 
 	"Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra"};
 
+	std::string elem_name = std::string(element);
+
 	int z;
 	for (z = 1; z <= 88; ++ z)
 	{
-		if (0 == strcmp(element, periodic[z]))
+		if (0 == elem_name.compare(periodic[z]))
 		{
 			return z;
 		}
@@ -225,10 +229,10 @@ void parse_basis(Atom *p_atom, Basis *p_basis)
 		{
 			int *tmp;
 
-			tmp = realloc(elem_nuc_chg, sizeof(int) * (ielem + 1));
+			tmp = (int *)realloc(elem_nuc_chg, sizeof(int) * (ielem + 1));
 			if (tmp != NULL) { elem_nuc_chg = tmp; }
 
-			tmp = realloc(elem_n_basis, sizeof(int) * (ielem + 1));
+			tmp = (int *)realloc(elem_n_basis, sizeof(int) * (ielem + 1));
 			if (tmp != NULL) { elem_n_basis = tmp; }
 		}
 
