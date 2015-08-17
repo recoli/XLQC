@@ -34,14 +34,14 @@
 // sqrt(2.)*pow(M_PI,1.25)
 #define SQRT_2_PI_1_25 5.91496717279561323721
 
-#define MAXMTOT 100
+#define MAXMTOT 15
 
 // MAXAM is one more than the maximum value of an AM (l,m,n) 
 #define MAXAM 7
 
 // MAXTERMS = pow(MAXAM,6)*MAXMTOT
-// 7^6 * 100 = 11764900
-#define MAXTERMS 11764900
+// 7^6 * 15 = 1764735
+#define MAXTERMS 1764735
 
 double Fgterms[MAXMTOT];
 double vrr_terms[MAXTERMS];
@@ -171,6 +171,11 @@ double vrr(double xa, double ya, double za, double norma,
   zeta = alphaa+alphab;
   eta = alphac+alphad;
 
+  double ZE = zeta + eta;
+  double SQRT_ZE = sqrt(ZE);
+  double E_ZE = eta / ZE;
+  double Z_ZE = zeta / ZE;
+
   wx = product_center_1D(zeta,px,eta,qx);
   wy = product_center_1D(zeta,py,eta,qy);
   wz = product_center_1D(zeta,pz,eta,qz);
@@ -182,7 +187,7 @@ double vrr(double xa, double ya, double za, double norma,
   Kcd = SQRT_2_PI_1_25 / (alphac+alphad)
         *exp(-alphac*alphad/(alphac+alphad)*rcd2);
   rpq2 = dist2(px,py,pz,qx,qy,qz);
-  T = zeta*eta/(zeta+eta)*rpq2;
+  T = zeta* E_ZE *rpq2;
 
   mtot = la+ma+na+lc+mc+nc+m;
 
@@ -196,6 +201,7 @@ double vrr(double xa, double ya, double za, double norma,
   if (mtot > MAXMTOT) 
   {
     printf("Error: MAXMTOT=%d, needs to be > %d\n",MAXMTOT,mtot);
+	printf("almn=%d,%d,%d; clmn=%d,%d,%d; m=%d\n",la,ma,na,lc,mc,nc,m);
 	exit(1);
   }
 
@@ -209,7 +215,7 @@ double vrr(double xa, double ya, double za, double norma,
   for (im = 0; im < mtot+1; ++ im)
   {
     vrr_terms[iindex(0,0,0,0,0,0,im)] = 
-      norma*normb*normc*normd*Kab*Kcd/sqrt(zeta+eta)*Fgterms[im];
+      norma*normb*normc*normd*Kab*Kcd/ SQRT_ZE *Fgterms[im];
   }
 
   for (i=0; i<la; ++i)
@@ -224,8 +230,7 @@ double vrr(double xa, double ya, double za, double norma,
 	  {
         vrr_terms[iindex(i+1,0,0, 0,0,0, im)] += 
           i/2./zeta*(vrr_terms[iindex(i-1,0,0, 0,0,0, im)]
-                     - eta/(zeta+eta) 
-					 * vrr_terms[iindex(i-1,0,0, 0,0,0, im+1)]);
+                     - E_ZE * vrr_terms[iindex(i-1,0,0, 0,0,0, im+1)]);
 	  }
     }
   }  
@@ -244,7 +249,7 @@ double vrr(double xa, double ya, double za, double norma,
 		{
           vrr_terms[iindex(i,j+1,0, 0,0,0, im)] +=
             j/2./zeta*(vrr_terms[iindex(i,j-1,0, 0,0,0, im)]
-            - eta/(zeta+eta) * vrr_terms[iindex(i,j-1,0, 0,0,0, im+1)]);
+            - E_ZE * vrr_terms[iindex(i,j-1,0, 0,0,0, im+1)]);
 		}
       }
     }
@@ -266,8 +271,7 @@ double vrr(double xa, double ya, double za, double norma,
 		  {
             vrr_terms[iindex(i,j,k+1, 0,0,0, im)] += 
               k/2./zeta*(vrr_terms[iindex(i,j,k-1, 0,0,0, im)]
-                         - eta/(zeta+eta)
-                         * vrr_terms[iindex(i,j,k-1, 0,0,0, im+1)]);
+                         - E_ZE * vrr_terms[iindex(i,j,k-1, 0,0,0, im+1)]);
 		  }
         }
       }
@@ -292,8 +296,7 @@ double vrr(double xa, double ya, double za, double norma,
 			{
               vrr_terms[iindex(i,j,k, q+1,0,0, im)] += 
                 q/2./eta*(vrr_terms[iindex(i,j,k, q-1,0,0, im)]
-             	          - zeta/(zeta+eta)
-            	          * vrr_terms[iindex(i,j,k, q-1,0,0, im+1)]);
+             	          - Z_ZE * vrr_terms[iindex(i,j,k, q-1,0,0, im+1)]);
 			}
 
             if (i>0)
