@@ -39,5 +39,5 @@ double vrr(double xa, double ya, double za, double norma,
 	   double xd, double yd, double zd, double normd, double alphad,
 	   int m);
 
-int iindex(int la, int ma, int na, int lc, int mc, int nc, int m);
+int iindex(int la, int ma, int na, int lc, int mc, int nc, int m, int *ac_lmax_prod);
 

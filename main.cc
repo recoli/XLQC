@@ -36,8 +36,6 @@
 #include "basis.h"
 #include "scf.h"
 
-#define MAXTERMS 1764735
-
 int main(int argc, char* argv[])
 {
 	Atom   *p_atom   = (Atom *)my_malloc(sizeof(Atom) * 1);
@@ -125,10 +123,6 @@ int main(int argc, char* argv[])
 	int n_eri = n_combi * (n_combi + 1) / 2;
 	fprintf(stdout, "N_eri = %d\n", n_eri);
 	double *ERI = (double *)my_malloc_2(sizeof(double) * n_eri, "ERI");
-
-
-    fprintf(stdout, "size of alloc (vrr_terms) = %zu KB\n", sizeof(double) * MAXTERMS / 1000);
-
 
 	int a,b,c,d;
 	for (a = 0; a < p_basis->num; ++ a)
