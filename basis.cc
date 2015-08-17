@@ -2,7 +2,7 @@
  This file is part of the XLQC program.                                      
  Copyright (C) 2015 Xin Li <lixin.reco@gmail.com>                            
                                                                            
- Filename:  basis.c                                                      
+ Filename:  basis.cc                                                      
  License:   BSD 3-Clause License
 
  This software is provided by the copyright holders and contributors "as is"
@@ -17,11 +17,9 @@
  of this software, even if advised of the possibility of such damage.
  *****************************************************************************/
 
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <string>
 
 #include <gsl/gsl_matrix.h>
