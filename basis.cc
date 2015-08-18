@@ -20,6 +20,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+
 #include <string>
 
 #include <gsl/gsl_matrix.h>
@@ -27,6 +29,7 @@
 
 #include "typedef.h"
 #include "int_lib/cints.h"
+#include "int_lib/crys.h"
 #include "int_lib/chgp.h"
 
 //=======================================
@@ -602,6 +605,30 @@ double calc_int_eri_hgp(Basis *p_basis, int a, int b, int c, int d)
 
 		  p_basis->nprims[d], p_basis->xbas[d][0], p_basis->xbas[d][1], p_basis->xbas[d][2], p_basis->norm[d], 
 		  p_basis->lmn[d][0], p_basis->lmn[d][1], p_basis->lmn[d][2], p_basis->expon[d], p_basis->coef[d]);
+
+	return eri;
+}
+
+double calc_int_eri_rys(Basis *p_basis, int a, int b, int c, int d)
+{
+	double eri;
+
+	eri = rys_contr_coulomb(
+		  p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
+		  p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
+		  p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+
+		  p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
+		  p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
+		  p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2],
+
+		  p_basis->nprims[c], p_basis->expon[c], p_basis->coef[c], p_basis->norm[c], 
+		  p_basis->xbas[c][0], p_basis->xbas[c][1], p_basis->xbas[c][2], 
+		  p_basis->lmn[c][0], p_basis->lmn[c][1], p_basis->lmn[c][2],
+
+		  p_basis->nprims[d], p_basis->expon[d], p_basis->coef[d], p_basis->norm[d],
+		  p_basis->xbas[d][0], p_basis->xbas[d][1], p_basis->xbas[d][2], 
+		  p_basis->lmn[d][0], p_basis->lmn[d][1], p_basis->lmn[d][2]);
 
 	return eri;
 }

@@ -20,6 +20,8 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+
 #include <string>
 
 #include <gsl/gsl_math.h>
@@ -161,7 +163,8 @@ int main(int argc, char* argv[])
 					int ijkl = ij2intindex(ij, kl);
 
 					// use HGP for two-electron integrals
-					double eri = calc_int_eri_hgp(p_basis, a, b, c, d);
+					//double eri = calc_int_eri_hgp(p_basis, a, b, c, d);
+					double eri = calc_int_eri_rys(p_basis, a, b, c, d);
 
 					ERI[ijkl] = eri;
 				}

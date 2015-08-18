@@ -32,6 +32,7 @@
 #include "crys.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -1451,7 +1452,8 @@ void Root5(double X){
 }
 
 void Root6(int n,double X){
-  printf("Root6 not implemented yet\n");
+  fprintf(stderr, "Root6 not implemented yet\n");
+  exit(1);
   return ;
 }
 

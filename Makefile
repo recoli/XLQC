@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-std=c++11 -O2 -Wall -lgsl -lgslcblas
+CFLAGS=-std=c++0x -O2 -Wall -lgsl -lgslcblas
 OBJ=basis.o scf.o main.o int_lib/crys.o int_lib/chgp.o int_lib/cints.o
 
 %.o: %.cc
