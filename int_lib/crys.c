@@ -20,14 +20,10 @@
  license. Please see the file LICENSE that is part of this
  distribution. 
 
- This file has been modified by Xin Li on 2015-07-13.
- 1. Removed "static" from all functions
- 2. Added "rys_" prefix to coulomb functions
- *
+ ====== This file has been modified by Xin Li on 2015-08-14 ======
+
  */
 
-//#include "Python.h"
-//===== Xin Li: added cints.h ==========
 #include "cints.h"
 #include "crys.h"
 #include <math.h>
@@ -38,12 +34,9 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-//===== Xin Li: moved from crys.h ==========
 #define MAXROOTS 20
 double roots[MAXROOTS],weights[MAXROOTS],G[MAXROOTS][MAXROOTS];
-double B00,B1,B1p,C,Cp;
 
-//===== Xin Li: function name changed to rys_contr_coulomb ==========
 double rys_contr_coulomb(int lena,double *aexps,double *acoefs,double *anorms,
 		     double xa,double ya,double za,int la,int ma,int na,
 		     int lenb,double *bexps,double *bcoefs,double *bnorms,
@@ -66,7 +59,6 @@ double rys_contr_coulomb(int lena,double *aexps,double *acoefs,double *anorms,
   return val;
 }
     
-//===== Xin Li: function name changed to rys_coulomb_repulsion ==========
 double rys_coulomb_repulsion(double xa,double ya,double za,double norma,
 			 int la,int ma,int na,double alphaa,
 			 double xb,double yb,double zb,double normb,
@@ -1467,32 +1459,6 @@ double Int1d(double t,int ix,int jx,int kx, int lx,
   return Ix;
 }
 
-void RecurFactors(double t,double A,double B,
-		  double Px,double Qx,double xi,double xk){
-  /* ABD eqs 12-14 */
-  double fff;
-  fff = t/(A+B);
-  B00 = 0.5*fff;
-  B1 = (1-B*fff)/(2*A);
-  B1p = (1-A*fff)/(2*B);
-  C = (Px-xi) + B*(Qx-Px)*fff;
-  Cp = (Qx-xk) + A*(Px-Qx)*fff;
-  return;
-}
-
-void RecurFactorsGamess(double t,double A,double B,
-			double Px,double Qx,double xi,double xk){
-  /* Analogous versions taken from Gamess source code */
-  double fff;
-  fff = t/(A+B)/(1+t);
-  B00 = 0.5*fff;
-  B1 = 1/(2*A*(1+t)) + 0.5*fff;
-  B1p = 1/(2*B*(1+t)) + 0.5*fff;
-  C = (Px-xi)/(1+t) + (B*(Qx-xi)+A*(Px-xi))*fff;
-  Cp = (Qx-xk)/(1+t) + (B*(Qx-xk)+A*(Px-xk))*fff;
-  return;
-}
-
 void Recur(double t, int i, int j, int k, int l,
 	   double xi, double xj, double xk, double xl,
 	   double alphai, double alphaj, double alphak, double alphal){
@@ -1507,27 +1473,35 @@ void Recur(double t, int i, int j, int k, int l,
   Px = (alphai*xi+alphaj*xj)/A;
   Qx = (alphak*xk+alphal*xl)/B;
 
-  RecurFactorsGamess(t,A,B,Px,Qx,xi,xk);
+  // RecurFactorsGamess
+  double fff,B00,B1,B1p,C,Cp;
+  fff = t/(A+B)/(1+t);
+  B00 = 0.5*fff;
+  B1 = 1/(2*A*(1+t)) + 0.5*fff;
+  B1p = 1/(2*B*(1+t)) + 0.5*fff;
+  C = (Px-xi)/(1+t) + (B*(Qx-xi)+A*(Px-xi))*fff;
+  Cp = (Qx-xk)/(1+t) + (B*(Qx-xk)+A*(Px-xk))*fff;
 
   /* ABD eq 11. */
   G[0][0] = M_PI*exp(-alphai*alphaj*pow(xi-xj,2)/(alphai+alphaj)
 		     -alphak*alphal*pow(xk-xl,2)/(alphak+alphal))/sqrt(A*B);
 
-    if (n > 0) G[1][0] = C*G[0][0];  /* ABD eq 15 */
-    if (m > 0) G[0][1] = Cp*G[0][0]; /* ABD eq 16 */
+  if (n > 0) G[1][0] = C*G[0][0];  /* ABD eq 15 */
+  if (m > 0) G[0][1] = Cp*G[0][0]; /* ABD eq 16 */
 
-    for (a=2; a<n+1; a++) G[a][0] = B1*(a-1)*G[a-2][0] + C*G[a-1][0];
-    for (b=2; b<m+1; b++) G[0][b] = B1p*(b-1)*G[0][b-2] + Cp*G[0][b-1];
+  for (a=2; a<n+1; a++) G[a][0] = B1*(a-1)*G[a-2][0] + C*G[a-1][0];
+  for (b=2; b<m+1; b++) G[0][b] = B1p*(b-1)*G[0][b-2] + Cp*G[0][b-1];
 
-    if ((m==0) || (n==0)) return;
-    
-    for (a=1; a<n+1; a++){
-      G[a][1] = a*B00*G[a-1][0] + Cp*G[a][0];
-      for (b=2; b<m+1; b++)
-	G[a][b] = B1p*(b-1)*G[a][b-2] + a*B00*G[a-1][b-1] + Cp*G[a][b-1];
-    }
+  if ((m==0) || (n==0)) return;
+  
+  for (a=1; a<n+1; a++)
+  {
+    G[a][1] = a*B00*G[a-1][0] + Cp*G[a][0];
+    for (b=2; b<m+1; b++)
+      G[a][b] = B1p*(b-1)*G[a][b-2] + a*B00*G[a-1][b-1] + Cp*G[a][b-1];
+  }
 
-    return;
+  return;
 }
 
 double Shift(int i, int j, int k, int l, double xij, double xkl){
@@ -1547,24 +1521,12 @@ double Shift(int i, int j, int k, int l, double xij, double xkl){
   return ijkl;
 }
 
-/* Util functions: */
-/*=========== commented by Xin Li, 2015-07-13 ===========
- * these functions are already in cints.h
-double product_center_1D(double alphaa, double xa, 
-			 double alphab, double xb){
-  return (alphaa*xa+alphab*xb)/(alphaa+alphab);
-}
-
-double dist2(double x1, double y1, double z1, double x2, double y2, double z2){
-  return (x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)+(z1-z2)*(z1-z2);
-}
-
-int binomial(int a, int b){return fact(a)/(fact(b)*fact(a-b));}
-
+/* util subroutines from cints.c
 int fact(int n){
   if (n <= 1) return 1;
   return n*fact(n-1);
 }
-=========== end of comment ===========*/
-
-/*======== python wrappers removed by Xin Li, 2015-07-13 ==========*/
+int binomial(int a, int b){
+  return fact(a)/(fact(b)*fact(a-b));
+}
+*/
