@@ -12,6 +12,8 @@
 
  **************************************************************************/
 
+#define MAXROOTS 7
+
 double rys_contr_coulomb(int lena,double *aexps,double *acoefs,double *anorms,
 		     double xa,double ya,double za,int la,int ma,int na,
 		     int lenb,double *bexps,double *bcoefs,double *bnorms,
@@ -30,18 +32,21 @@ double rys_coulomb_repulsion(double xa,double ya,double za,double norma,
 			 double xd,double yd,double zd,double normd,
 			 int ld,int md,int nd,double alphad);
 
-void Roots(int n, double X);
-void Root123(int n, double X);
-void Root4(double X);
-void Root5(double X);
-void Root6(int n,double X);
+void Roots(int n, double X, double roots[], double weights[]);
+void Root123(int n, double X, double roots[], double weights[]);
+void Root4(double X, double roots[], double weights[]);
+void Root5(double X, double roots[], double weights[]);
+void Root6(int n,double X, double roots[], double weights[]);
 double Int1d(double t,int ix,int jx,int kx, int lx,
 	     double xi,double xj, double xk,double xl,
-	     double alphai,double alphaj,double alphak,double alphal);
+	     double alphai,double alphaj,double alphak,double alphal,
+		 double G[][MAXROOTS]);
 
 void Recur(double t, int i, int j, int k, int l,
 	   double xi, double xj, double xk, double xl,
-	   double alphai, double alphaj, double alphak, double alphal);
+	   double alphai, double alphaj, double alphak, double alphal,
+	   double G[][MAXROOTS]);
 
-double Shift(int i, int j, int k, int l, double xij, double xkl);
+double Shift(int i, int j, int k, int l, double xij, double xkl,
+		double G[][MAXROOTS]);
 

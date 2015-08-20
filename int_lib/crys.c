@@ -34,8 +34,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-#define MAXROOTS 20
-double roots[MAXROOTS],weights[MAXROOTS],G[MAXROOTS][MAXROOTS];
+#define MAXROOTS 7
 
 double rys_contr_coulomb(int lena,double *aexps,double *acoefs,double *anorms,
 		     double xa,double ya,double za,int la,int ma,int na,
@@ -86,36 +85,39 @@ double rys_coulomb_repulsion(double xa,double ya,double za,double norma,
 
   X = rpq2*rho;
 
-  Roots(norder,X); /* Puts currect roots/weights in "common" */
+  double roots[norder],weights[norder];
+  double G[la+lb+ma+mb+na+nb+1][MAXROOTS];
+
+  Roots(norder,X, roots,weights); // get currect roots/weights
 
   sum = 0.;
   for (i=0; i<norder; i++){
     t = roots[i];
     Ix = Int1d(t,la,lb,lc,ld,xa,xb,xc,xd,
-	       alphaa,alphab,alphac,alphad);
+	       alphaa,alphab,alphac,alphad, G);
     Iy = Int1d(t,ma,mb,mc,md,ya,yb,yc,yd,
-	       alphaa,alphab,alphac,alphad);
+	       alphaa,alphab,alphac,alphad, G);
     Iz = Int1d(t,na,nb,nc,nd,za,zb,zc,zd,
-	       alphaa,alphab,alphac,alphad);
+	       alphaa,alphab,alphac,alphad, G);
     sum = sum + Ix*Iy*Iz*weights[i]; /* ABD eq 5 & 9 */
   }
   return 2*sqrt(rho/M_PI)*norma*normb*normc*normd*sum; /* ABD eq 5 & 9 */
 }
 
-void Roots(int n, double X){
+void Roots(int n, double X, double roots[], double weights[]){
   if (n <= 3)
-    Root123(n,X);
+    Root123(n,X, roots,weights);
   else if (n==4) 
-    Root4(X);
+    Root4(X, roots,weights);
   else if (n==5)
-    Root5(X);
+    Root5(X, roots,weights);
   else
-    Root6(n,X);
+    Root6(n,X, roots,weights);
   return;
 }
 
 
-void Root123(int n, double X){
+void Root123(int n, double X, double roots[], double weights[]){
 
   double R12, PIE4, R22, W22, R13, R23, W23, R33, W33;
   double RT1=0,RT2=0,RT3=0,WW1=0,WW2=0,WW3=0;
@@ -572,7 +574,7 @@ void Root123(int n, double X){
   return;
 }
 
-void Root4(double X){
+void Root4(double X, double roots[], double weights[]){
   double R14,PIE4,R24,W24,R34,W34,R44,W44;
   double RT1=0,RT2=0,RT3=0,RT4=0,WW1=0,WW2=0,WW3=0,WW4=0;
   double Y,E;
@@ -938,7 +940,7 @@ void Root4(double X){
   return;
 }
 
-void Root5(double X){
+void Root5(double X, double roots[], double weights[]){
   double R15,PIE4,R25,W25,R35,W35,R45,W45,R55,W55;
   double RT1=0,RT2=0,RT3=0,RT4=0,RT5=0,
     WW1=0,WW2=0,WW3=0,WW4=0,WW5=0;
@@ -1443,7 +1445,7 @@ void Root5(double X){
   return;
 }
 
-void Root6(int n,double X){
+void Root6(int n,double X, double roots[], double weights[]){
   fprintf(stderr, "Root6 not implemented yet\n");
   exit(1);
   return ;
@@ -1451,17 +1453,19 @@ void Root6(int n,double X){
 
 double Int1d(double t,int ix,int jx,int kx, int lx,
 	     double xi,double xj, double xk,double xl,
-	     double alphai,double alphaj,double alphak,double alphal){
+	     double alphai,double alphaj,double alphak,double alphal,
+		 double G[][MAXROOTS]){
   double Ix;
   Recur(t,ix,jx,kx,lx,xi,xj,xk,xl,
-	alphai,alphaj,alphak,alphal);
-  Ix = Shift(ix,jx,kx,lx,xi-xj,xk-xl);
+	alphai,alphaj,alphak,alphal, G);
+  Ix = Shift(ix,jx,kx,lx,xi-xj,xk-xl, G);
   return Ix;
 }
 
 void Recur(double t, int i, int j, int k, int l,
 	   double xi, double xj, double xk, double xl,
-	   double alphai, double alphaj, double alphak, double alphal){
+	   double alphai, double alphaj, double alphak, double alphal,
+	   double G[][MAXROOTS]){
   /* Form G(n,m)=I(n,0,m,0) intermediate values for a Rys polynomial */
   int n,m,a,b;
   double A,B,Px,Qx;
@@ -1504,7 +1508,8 @@ void Recur(double t, int i, int j, int k, int l,
   return;
 }
 
-double Shift(int i, int j, int k, int l, double xij, double xkl){
+double Shift(int i, int j, int k, int l, double xij, double xkl, 
+		double G[][MAXROOTS]){
   /* Compute and  output I(i,j,k,l) from I(i+j,0,k+l,0) (G) */
   /*  xij = xi-xj, xkl = xk-xl */
 
