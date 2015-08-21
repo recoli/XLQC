@@ -8,7 +8,7 @@
  license. Please see the file LICENSE that is part of this
  distribution. 
 
- ====== This file has been modified by Xin Li on 2015-08-20 ======
+ ====== This file has been modified by Xin Li on 2015-08-21 ======
 
  **************************************************************************/
 
@@ -41,12 +41,4 @@ double Int1d(double t,int ix,int jx,int kx, int lx,
 	     double xi,double xj, double xk,double xl,
 	     double alphai,double alphaj,double alphak,double alphal,
 		 double G[][MAXROOTS]);
-
-void Recur(double t, int i, int j, int k, int l,
-	   double xi, double xj, double xk, double xl,
-	   double alphai, double alphaj, double alphak, double alphal,
-	   double G[][MAXROOTS]);
-
-double Shift(int i, int j, int k, int l, double xij, double xkl,
-		double G[][MAXROOTS]);
 

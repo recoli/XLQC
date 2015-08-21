@@ -20,7 +20,7 @@
  license. Please see the file LICENSE that is part of this
  distribution. 
 
- ====== This file has been modified by Xin Li on 2015-08-14 ======
+ ====== This file has been modified by Xin Li on 2015-08-21 ======
 
  */
 
@@ -1451,22 +1451,12 @@ void Root6(int n,double X, double roots[], double weights[]){
   return ;
 }
 
-double Int1d(double t,int ix,int jx,int kx, int lx,
+double Int1d(double t,int i,int j,int k, int l,
 	     double xi,double xj, double xk,double xl,
 	     double alphai,double alphaj,double alphak,double alphal,
-		 double G[][MAXROOTS]){
-  double Ix;
-  Recur(t,ix,jx,kx,lx,xi,xj,xk,xl,
-	alphai,alphaj,alphak,alphal, G);
-  Ix = Shift(ix,jx,kx,lx,xi-xj,xk-xl, G);
-  return Ix;
-}
-
-void Recur(double t, int i, int j, int k, int l,
-	   double xi, double xj, double xk, double xl,
-	   double alphai, double alphaj, double alphak, double alphal,
-	   double G[][MAXROOTS]){
-  /* Form G(n,m)=I(n,0,m,0) intermediate values for a Rys polynomial */
+		 double G[][MAXROOTS])
+{
+  // Form G(n,m)=I(n,0,m,0) intermediate values for a Rys polynomial 
   int n,m,a,b;
   double A,B,Px,Qx;
 
@@ -1486,52 +1476,39 @@ void Recur(double t, int i, int j, int k, int l,
   C = (Px-xi)/(1+t) + (B*(Qx-xi)+A*(Px-xi))*fff;
   Cp = (Qx-xk)/(1+t) + (B*(Qx-xk)+A*(Px-xk))*fff;
 
-  /* ABD eq 11. */
+  // ABD eq 11. 
   G[0][0] = M_PI*exp(-alphai*alphaj*pow(xi-xj,2)/(alphai+alphaj)
 		     -alphak*alphal*pow(xk-xl,2)/(alphak+alphal))/sqrt(A*B);
 
-  if (n > 0) G[1][0] = C*G[0][0];  /* ABD eq 15 */
-  if (m > 0) G[0][1] = Cp*G[0][0]; /* ABD eq 16 */
+  if (n > 0) G[1][0] = C*G[0][0];  // ABD eq 15 
+  if (m > 0) G[0][1] = Cp*G[0][0]; // ABD eq 16 
 
   for (a=2; a<n+1; a++) G[a][0] = B1*(a-1)*G[a-2][0] + C*G[a-1][0];
   for (b=2; b<m+1; b++) G[0][b] = B1p*(b-1)*G[0][b-2] + Cp*G[0][b-1];
 
-  if ((m==0) || (n==0)) return;
-  
-  for (a=1; a<n+1; a++)
+  if ((m>0) && (n>0))
   {
-    G[a][1] = a*B00*G[a-1][0] + Cp*G[a][0];
-    for (b=2; b<m+1; b++)
-      G[a][b] = B1p*(b-1)*G[a][b-2] + a*B00*G[a-1][b-1] + Cp*G[a][b-1];
+    for (a=1; a<n+1; a++)
+    {
+      G[a][1] = a*B00*G[a-1][0] + Cp*G[a][0];
+      for (b=2; b<m+1; b++)
+        G[a][b] = B1p*(b-1)*G[a][b-2] + a*B00*G[a-1][b-1] + Cp*G[a][b-1];
+    }
   }
 
-  return;
-}
 
-double Shift(int i, int j, int k, int l, double xij, double xkl, 
-		double G[][MAXROOTS]){
-  /* Compute and  output I(i,j,k,l) from I(i+j,0,k+l,0) (G) */
-  /*  xij = xi-xj, xkl = xk-xl */
+  // Compute and output I(i,j,k,l) from I(i+j,0,k+l,0) (G) 
+  double xij = xi-xj;
+  double xkl = xk-xl;
 
-  double ijkl,ijm0;
-  int m,n;
-
-  ijkl = 0;
+  double ijkl = 0.0;
   for (m=0; m<l+1; m++){
-    ijm0 = 0;
-    for (n=0; n<j+1; n++) /* I(i,j,m,0)<-I(n,0,m,0)  */
+    double ijm0 = 0.0;
+    for (n=0; n<j+1; n++) // I(i,j,m,0)<-I(n,0,m,0)  
       ijm0 += binomial(j,n)*pow(xij,j-n)*G[n+i][m+k];
-    ijkl += binomial(l,m)*pow(xkl,l-m)*ijm0; /* I(i,j,k,l)<-I(i,j,m,0) */
+    ijkl += binomial(l,m)*pow(xkl,l-m)*ijm0; // I(i,j,k,l)<-I(i,j,m,0) 
   }
+
   return ijkl;
 }
 
-/* util subroutines from cints.c
-int fact(int n){
-  if (n <= 1) return 1;
-  return n*fact(n-1);
-}
-int binomial(int a, int b){
-  return fact(a)/(fact(b)*fact(a-b));
-}
-*/
