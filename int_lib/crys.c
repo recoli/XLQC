@@ -1467,23 +1467,28 @@ double Int1d(double t,int i,int j,int k, int l,
   Px = (alphai*xi+alphaj*xj)/A;
   Qx = (alphak*xk+alphal*xl)/B;
 
+  double xij = xi-xj;
+  double xkl = xk-xl;
+
   // RecurFactorsGamess
   double fff,B00,B1,B1p,C,Cp;
-  fff = t/(A+B)/(1+t);
+  double inv_t1 = 1.0 / (1 + t);
+
+  fff = t/(A+B) * inv_t1;
   B00 = 0.5*fff;
-  B1 = 1/(2*A*(1+t)) + 0.5*fff;
-  B1p = 1/(2*B*(1+t)) + 0.5*fff;
-  C = (Px-xi)/(1+t) + (B*(Qx-xi)+A*(Px-xi))*fff;
-  Cp = (Qx-xk)/(1+t) + (B*(Qx-xk)+A*(Px-xk))*fff;
+  B1  = 0.5 / A * inv_t1 + B00;
+  B1p = 0.5 / B * inv_t1 + B00;
+  C   = (Px-xi) * inv_t1 + (B*(Qx-xi)+A*(Px-xi))*fff;
+  Cp  = (Qx-xk) * inv_t1 + (B*(Qx-xk)+A*(Px-xk))*fff;
 
   // ABD eq 11. 
-  G[0][0] = M_PI*exp(-alphai*alphaj*pow(xi-xj,2)/(alphai+alphaj)
-		     -alphak*alphal*pow(xk-xl,2)/(alphak+alphal))/sqrt(A*B);
+  G[0][0] = M_PI*exp(-alphai*alphaj*xij*xij/A
+		     -alphak*alphal*xkl*xkl/B)/sqrt(A*B);
 
-  if (n > 0) G[1][0] = C*G[0][0];  // ABD eq 15 
+  if (n > 0) G[1][0] = C *G[0][0]; // ABD eq 15 
   if (m > 0) G[0][1] = Cp*G[0][0]; // ABD eq 16 
 
-  for (a=2; a<n+1; a++) G[a][0] = B1*(a-1)*G[a-2][0] + C*G[a-1][0];
+  for (a=2; a<n+1; a++) G[a][0] = B1 *(a-1)*G[a-2][0] + C *G[a-1][0];
   for (b=2; b<m+1; b++) G[0][b] = B1p*(b-1)*G[0][b-2] + Cp*G[0][b-1];
 
   if ((m>0) && (n>0))
@@ -1498,9 +1503,6 @@ double Int1d(double t,int i,int j,int k, int l,
 
 
   // Compute and output I(i,j,k,l) from I(i+j,0,k+l,0) (G) 
-  double xij = xi-xj;
-  double xkl = xk-xl;
-
   double ijkl = 0.0;
   for (m=0; m<l+1; m++){
     double ijm0 = 0.0;
