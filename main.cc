@@ -124,7 +124,7 @@ int main(int argc, char* argv[])
 	int n_combi = p_basis->num * (p_basis->num + 1) / 2;
 	int n_eri = n_combi * (n_combi + 1) / 2;
 	fprintf(stdout, "N_eri = %d\n", n_eri);
-	double *ERI = (double *)my_malloc_2(sizeof(double) * n_eri, "ERI");
+	//double *ERI = (double *)my_malloc_2(sizeof(double) * n_eri, "ERI");
 
 	int a,b,c,d;
 	for (a = 0; a < p_basis->num; ++ a)
@@ -151,6 +151,7 @@ int main(int argc, char* argv[])
 				gsl_matrix_set(V, b, a, v);
 			}
 
+			/*
 			// two-electron integral
 			int ij = ij2intindex(a, b);
 			for (c = 0; c < p_basis->num; ++ c)
@@ -169,6 +170,7 @@ int main(int argc, char* argv[])
 					ERI[ijkl] = eri;
 				}
 			}
+			*/
 		}
 	}
 
@@ -251,11 +253,9 @@ int main(int argc, char* argv[])
 			"Iter", "E_total", "delta_E", "rms_D", "delta_DIIS");
 
 
-	/*
 	// Q: sqrt(ab|ab) for prescreening of two-electron integrals
 	gsl_matrix *Q = gsl_matrix_alloc(p_basis->num, p_basis->num);
 	form_Q(p_basis, Q);
-	*/
 
 
 	// start SCF iterations
@@ -269,8 +269,8 @@ int main(int argc, char* argv[])
 		// C = S^-1/2 * C'
 		// compute new density matrix
 
-		form_G(p_basis->num, D_prev, ERI, G);
-		//direct_form_G(p_basis, D_prev, Q, G);
+		//form_G(p_basis->num, D_prev, ERI, G);
+		direct_form_G(p_basis, D_prev, Q, G);
 
 #ifdef DEBUG
 		printf("G:\n"); my_print_matrix(G);
@@ -368,9 +368,9 @@ int main(int argc, char* argv[])
 	gsl_matrix_free(S);
 	gsl_matrix_free(T);
 	gsl_matrix_free(V);
-	free(ERI);
+	//free(ERI);
 
-	//gsl_matrix_free(Q);
+	gsl_matrix_free(Q);
 
 	// free matrices and vector for SCF
 	gsl_matrix_free(H_core);

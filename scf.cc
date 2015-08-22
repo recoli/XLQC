@@ -424,77 +424,101 @@ void direct_form_G(Basis *p_basis, gsl_matrix *D_prev, gsl_matrix *Q, gsl_matrix
 	{
 		for (b = 0; b <= a; ++ b)
 		{
-			int ij = ij2intindex(a, b);
+			//int ij = ij2intindex(a, b);
 
 			double Qab = gsl_matrix_get(Q,a,b);
 
-			for (c = 0; c < p_basis->num; ++ c)
-			{
-				for (d = 0; d <= c; ++ d)
-				{
-					int kl = ij2intindex(c, d);
-					if (ij < kl) { continue; }
+			double Dmax = 0.0;
+			double Dab = gsl_matrix_get(D_prev,a,b);
+			if (fabs(2.0 * Dab) > Dmax) { Dmax = fabs(2.0 * Dab); }
 
+			for (c = 0; c <= a; ++ c)
+			{
+				double half_Dac = 0.5 * gsl_matrix_get(D_prev,a,c);
+				double half_Dbc = 0.5 * gsl_matrix_get(D_prev,b,c);
+				if (fabs(half_Dac) > Dmax) { Dmax = fabs(half_Dac); }
+				if (fabs(half_Dbc) > Dmax) { Dmax = fabs(half_Dbc); }
+
+				int d_max = (a == c) ? b : c;
+				for (d = 0; d <= d_max; ++ d)
+				{
+					//int kl = ij2intindex(c, d);
+					//if (ij < kl) { continue; }
+
+					double half_Dad = 0.5 * gsl_matrix_get(D_prev,a,d);
+					double half_Dbd = 0.5 * gsl_matrix_get(D_prev,b,d);
+					double Dcd = gsl_matrix_get(D_prev,c,d);
+					if (fabs(half_Dad) > Dmax) { Dmax = fabs(half_Dad); }
+					if (fabs(half_Dbd) > Dmax) { Dmax = fabs(half_Dbd); }
+					if (fabs(2.0 * Dcd) > Dmax) { Dmax = fabs(2.0 * Dcd); }
 
 					// Schwarz inequality
 					// (ab|cd) <= sqrt(ab|ab) * sqrt(cd|cd)
 					double Qcd = gsl_matrix_get(Q,c,d);
-					if (Qab * Qcd < 1.0e-8) { continue; }
+					if (Qab * Qcd * Dmax < 1.0e-10) { continue; }
 
 
-					double eri = calc_int_eri_hgp(p_basis, a, b, c, d);
+					double eri = calc_int_eri_rys(p_basis, a, b, c, d);
+
+					double Dab_eri = Dab * eri;
+					double Dcd_eri = Dcd * eri;
+					double half_Dac_eri = half_Dac * eri;
+					double half_Dad_eri = half_Dad * eri;
+					double half_Dbc_eri = half_Dbc * eri;
+					double half_Dbd_eri = half_Dbd * eri;
 
 					// ab|cd  -->  G_ab += D_cd * ERI_abcd
 					// ab|cd  -->  G_ac -= 0.5 * D_bd * ERI_abcd
-					gsl_matrix_set(G,a,b, gsl_matrix_get(G,a,b) + gsl_matrix_get(D_prev,c,d) * eri);
-					gsl_matrix_set(G,a,c, gsl_matrix_get(G,a,c) - 0.5 * gsl_matrix_get(D_prev,b,d) * eri);
-
-					// ba|cd  -->  G_ba += D_cd * ERI_abcd
-					// ba|cd  -->  G_bc -= 0.5 * D_ad * ERI_abcd
-					if (a != b)
-					{
-						gsl_matrix_set(G,b,a, gsl_matrix_get(G,b,a) + gsl_matrix_get(D_prev,c,d) * eri);
-						gsl_matrix_set(G,b,c, gsl_matrix_get(G,b,c) - 0.5 * gsl_matrix_get(D_prev,a,d) * eri);
-					}
+					gsl_matrix_set(G,a,b, gsl_matrix_get(G,a,b) + Dcd_eri);
+					gsl_matrix_set(G,a,c, gsl_matrix_get(G,a,c) - half_Dbd_eri);
 
 					// ab|dc  -->  G_ab += D_dc * ERI_abcd
 					// ab|dc  -->  G_ad -= 0.5 * D_bc * ERI_abcd
 					if (c != d)
 					{
-						gsl_matrix_set(G,a,b, gsl_matrix_get(G,a,b) + gsl_matrix_get(D_prev,d,c) * eri);
-						gsl_matrix_set(G,a,d, gsl_matrix_get(G,a,d) - 0.5 * gsl_matrix_get(D_prev,b,c) * eri);
+						gsl_matrix_set(G,a,b, gsl_matrix_get(G,a,b) + Dcd_eri);
+						gsl_matrix_set(G,a,d, gsl_matrix_get(G,a,d) - half_Dbc_eri);
 					}
 
-					// ba|dc  -->  G_ba += D_dc * ERI_abcd
-					// ba|dc  -->  G_bd -= 0.5 * D_ac * ERI_abcd
-					if (a != b && c != d)
+					// ba|cd  -->  G_ba += D_cd * ERI_abcd
+					// ba|cd  -->  G_bc -= 0.5 * D_ad * ERI_abcd
+					if (a != b)
 					{
-						gsl_matrix_set(G,b,a, gsl_matrix_get(G,b,a) + gsl_matrix_get(D_prev,d,c) * eri);
-						gsl_matrix_set(G,b,d, gsl_matrix_get(G,b,d) - 0.5 * gsl_matrix_get(D_prev,a,c) * eri);
+						gsl_matrix_set(G,b,a, gsl_matrix_get(G,b,a) + Dcd_eri);
+						gsl_matrix_set(G,b,c, gsl_matrix_get(G,b,c) - half_Dad_eri);
+
+						// ba|dc  -->  G_ba += D_dc * ERI_abcd
+						// ba|dc  -->  G_bd -= 0.5 * D_ac * ERI_abcd
+						if (c != d)
+						{
+							gsl_matrix_set(G,b,a, gsl_matrix_get(G,b,a) + Dcd_eri);
+							gsl_matrix_set(G,b,d, gsl_matrix_get(G,b,d) - half_Dac_eri);
+						}
 					}
 
 					// ab<==>cd permutations
-					if (ij != kl)
+					//if (ij != kl)
+					if (a != c || b != d)
 					{
-						gsl_matrix_set(G,c,d, gsl_matrix_get(G,c,d) + gsl_matrix_get(D_prev,a,b) * eri);
-						gsl_matrix_set(G,c,a, gsl_matrix_get(G,c,a) - 0.5 * gsl_matrix_get(D_prev,d,b) * eri);
-
-						if (c != d)
-						{
-							gsl_matrix_set(G,d,c, gsl_matrix_get(G,d,c) + gsl_matrix_get(D_prev,a,b) * eri);
-							gsl_matrix_set(G,d,a, gsl_matrix_get(G,d,a) - 0.5 * gsl_matrix_get(D_prev,c,b) * eri);
-						}
+						gsl_matrix_set(G,c,d, gsl_matrix_get(G,c,d) + Dab_eri);
+						gsl_matrix_set(G,c,a, gsl_matrix_get(G,c,a) - half_Dbd_eri);
 
 						if (a != b)
 						{
-							gsl_matrix_set(G,c,d, gsl_matrix_get(G,c,d) + gsl_matrix_get(D_prev,b,a) * eri);
-							gsl_matrix_set(G,c,b, gsl_matrix_get(G,c,b) - 0.5 * gsl_matrix_get(D_prev,d,a) * eri);
+							gsl_matrix_set(G,c,d, gsl_matrix_get(G,c,d) + Dab_eri);
+							gsl_matrix_set(G,c,b, gsl_matrix_get(G,c,b) - half_Dad_eri);
 						}
 
-						if (c != d && a != b)
+						if (c != d)
 						{
-							gsl_matrix_set(G,d,c, gsl_matrix_get(G,d,c) + gsl_matrix_get(D_prev,b,a) * eri);
-							gsl_matrix_set(G,d,b, gsl_matrix_get(G,d,b) - 0.5 * gsl_matrix_get(D_prev,c,a) * eri);
+							gsl_matrix_set(G,d,c, gsl_matrix_get(G,d,c) + Dab_eri);
+							gsl_matrix_set(G,d,a, gsl_matrix_get(G,d,a) - half_Dbc_eri);
+
+							if (a != b)
+							{
+								gsl_matrix_set(G,d,c, gsl_matrix_get(G,d,c) + Dab_eri);
+								gsl_matrix_set(G,d,b, gsl_matrix_get(G,d,b) - half_Dac_eri);
+							}
 						}
 					}
 				}
@@ -512,7 +536,7 @@ void form_Q(Basis *p_basis, gsl_matrix *Q)
 	{
 		for (b = 0; b <= a; ++ b)
 		{
-			double eri = calc_int_eri_hgp(p_basis, a, b, a, b);
+			double eri = calc_int_eri_rys(p_basis, a, b, a, b);
 			double Qab = sqrt(eri);
 			gsl_matrix_set(Q, a, b, Qab);
 			if (a != b) { gsl_matrix_set(Q, b, a, Qab); }
