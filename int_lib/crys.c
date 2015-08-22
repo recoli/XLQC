@@ -62,14 +62,19 @@ double rys_contr_coulomb(int lena,double *aexps,double *acoefs,double *anorms,
 				       xd,yd,zd,dnorms[l],ld,md,nd,dexps[l]);
 
 		  /* just for test purposes ...
-		  printf("%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,%.12f,\n",
-				  xa,ya,za,anorms[i],la,ma,na,aexps[i],acoefs[i]);
-		  printf("%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,%.12f,\n",
-				  xb,yb,zb,bnorms[i],lb,mb,nb,bexps[i],bcoefs[i]);
-		  printf("%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,%.12f,\n",
-				  xc,yc,zc,cnorms[i],lc,mc,nc,cexps[i],ccoefs[i]);
-		  printf("%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,%.12f\n",
-				  xd,yd,zd,dnorms[i],ld,md,nd,dexps[i],dcoefs[i]);
+		  if(i==1 && j==0 && k==2 && l==0)
+		  {
+		  printf("%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,\n",
+				  xa,ya,za,anorms[i],la,ma,na,aexps[i]);
+		  printf("%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,\n",
+				  xb,yb,zb,bnorms[j],lb,mb,nb,bexps[j]);
+		  printf("%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,\n",
+				  xc,yc,zc,cnorms[k],lc,mc,nc,cexps[k]);
+		  printf("%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,\n",
+				  xd,yd,zd,dnorms[l],ld,md,nd,dexps[l]);
+
+		  printf("*%.12f*%.12f*%.12f*%.12f\n",
+				  acoefs[i],bcoefs[j],ccoefs[k],dcoefs[l]);
 
 		  double eri = acoefs[i]*bcoefs[j]*ccoefs[k]*dcoefs[l]*
 		    rys_coulomb_repulsion(xa,ya,za,anorms[i],la,ma,na,aexps[i],
@@ -78,6 +83,7 @@ double rys_contr_coulomb(int lena,double *aexps,double *acoefs,double *anorms,
 				       xd,yd,zd,dnorms[l],ld,md,nd,dexps[l]);
 		  printf("eri = %.12e\n",eri);
 		  exit(1);
+		  }
 		  */
 		}
 	  }
