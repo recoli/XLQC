@@ -4,13 +4,13 @@ CFLAGS=-std=c++0x -O2 -Wall -lgsl -lgslcblas
 NVCC=nvcc
 NVCFLAGS=-lgsl -lgslcblas
 
-OBJ=basis.o scf.o main.o int_lib/crys.o int_lib/chgp.o int_lib/cints.o
+OBJ=basis.o scf.o main.o cuda_rys.o int_lib/crys.o int_lib/chgp.o int_lib/cints.o
 
 main: $(OBJ)
 	$(NVCC) -o $@ $^ $(NVCFLAGS)
 
-main.o: main.cc
-	$(NVCC) -c -o $@ $< $(NVCFLAGS)
+%.o: %.cu
+	$(NVCC) -dc -o $@ $< $(NVCFLAGS)
 
 %.o: %.cc
 	$(CC) -c -o $@ $< $(CFLAGS)

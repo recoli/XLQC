@@ -38,6 +38,8 @@
 #include "basis.h"
 #include "scf.h"
 
+#include "cuda_rys.h"
+
 int main(int argc, char* argv[])
 {
 	Atom   *p_atom   = (Atom *)my_malloc(sizeof(Atom) * 1);
@@ -126,7 +128,8 @@ int main(int argc, char* argv[])
 	fprintf(stdout, "N_eri = %d\n", n_eri);
 	//double *ERI = (double *)my_malloc_2(sizeof(double) * n_eri, "ERI");
 
-	int a,b,c,d;
+	//int a,b,c,d;
+	int a,b;
 	for (a = 0; a < p_basis->num; ++ a)
 	{
 		for (b = 0; b <= a; ++ b)
@@ -251,6 +254,25 @@ int main(int argc, char* argv[])
 
 	fprintf(stdout, "%5s %20s %20s %20s %20s\n",
 			"Iter", "E_total", "delta_E", "rms_D", "delta_DIIS");
+
+
+
+	/* just for test purposes ...
+	double test_eri = 0.0;
+	double *dev_eri;
+	cudaMalloc((void**)&dev_eri, sizeof(double));
+
+	cuda_rys_eri<<<1, 1>>>
+		(0.000000000000,-0.143225816552,0.000000000000,635.840346677400,0,0,0,8588.500000000000,
+		 0.000000000000,-0.143225816552,0.000000000000,635.840346677400,0,0,0,8588.500000000000,
+		 0.000000000000,-0.143225816552,0.000000000000,635.840346677400,0,0,0,8588.500000000000,
+		 0.000000000000,-0.143225816552,0.000000000000,635.840346677400,0,0,0,8588.500000000000,
+		 dev_eri);
+
+	cudaMemcpy(&test_eri, dev_eri, sizeof(double), cudaMemcpyDeviceToHost);
+	printf("cuda_eri = %.12e\n",test_eri*0.001895150000*0.001895150000*0.001895150000*0.001895150000);
+	*/
+
 
 
 	// Q: sqrt(ab|ab) for prescreening of two-electron integrals

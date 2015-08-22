@@ -1,151 +1,27 @@
-/* crys.c Implementation of Rys quadrature routines in C
- *
- * Two electron integral evaluation using Rys polynomials.
- *
- * References:
- * ABD: Augspurger, Bernholdt, and Dykstra. 'Concise, Open-Ended
- *      Implementation of Rys Polynomial Evaluation of Two-Electron
- *      Integrals.' J. Comp. Chem. 11 (8), 972-977 (1990).
- *
- * Special thanks to Cliff Dykstra for providing a working version of his
- *  Fortran code for this problem.
- *
- * Most of this taken from ABD but polynomial stuff still from GAMESS.
- *
- This program is part of the PyQuante quantum chemistry program suite.
+#include "cuda_rys.h"
 
- Copyright (c) 2004, Richard P. Muller. All Rights Reserved. 
-
- PyQuante version 1.2 and later is covered by the modified BSD
- license. Please see the file LICENSE that is part of this
- distribution. 
-
- ====== This file has been modified by Xin Li on 2015-08-21 ======
-
- */
-
-#include "cints.h"
-#include "crys.h"
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
-#define MAXROOTS 7
-
-double rys_contr_coulomb(int lena,double *aexps,double *acoefs,double *anorms,
-		     double xa,double ya,double za,int la,int ma,int na,
-		     int lenb,double *bexps,double *bcoefs,double *bnorms,
-		     double xb,double yb,double zb,int lb,int mb,int nb,
-		     int lenc,double *cexps,double *ccoefs,double *cnorms,
-		     double xc,double yc,double zc,int lc,int mc,int nc,
-		     int lend,double *dexps,double *dcoefs,double *dnorms,
-		     double xd,double yd,double zd,int ld,int md,int nd)
-{
-  double val = 0.;
-  int i,j,k,l;
-  for (i=0; i<lena; i++)
-  {
-    for (j=0; j<lenb; j++)
-	{
-      for (k=0; k<lenc; k++)
-	  {
-		for (l=0; l<lend; l++)
-		{
-		  val += acoefs[i]*bcoefs[j]*ccoefs[k]*dcoefs[l]
-		    *rys_coulomb_repulsion(xa,ya,za,anorms[i],la,ma,na,aexps[i],
-				       xb,yb,zb,bnorms[j],lb,mb,nb,bexps[j],
-				       xc,yc,zc,cnorms[k],lc,mc,nc,cexps[k],
-				       xd,yd,zd,dnorms[l],ld,md,nd,dexps[l]);
-
-		  /* just for test purposes ...
-		  printf("%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,%.12f,\n",
-				  xa,ya,za,anorms[i],la,ma,na,aexps[i],acoefs[i]);
-		  printf("%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,%.12f,\n",
-				  xb,yb,zb,bnorms[i],lb,mb,nb,bexps[i],bcoefs[i]);
-		  printf("%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,%.12f,\n",
-				  xc,yc,zc,cnorms[i],lc,mc,nc,cexps[i],ccoefs[i]);
-		  printf("%.12f,%.12f,%.12f,%.12f,%d,%d,%d,%.12f,%.12f\n",
-				  xd,yd,zd,dnorms[i],ld,md,nd,dexps[i],dcoefs[i]);
-
-		  double eri = acoefs[i]*bcoefs[j]*ccoefs[k]*dcoefs[l]*
-		    rys_coulomb_repulsion(xa,ya,za,anorms[i],la,ma,na,aexps[i],
-				       xb,yb,zb,bnorms[j],lb,mb,nb,bexps[j],
-				       xc,yc,zc,cnorms[k],lc,mc,nc,cexps[k],
-				       xd,yd,zd,dnorms[l],ld,md,nd,dexps[l]);
-		  printf("eri = %.12e\n",eri);
-		  exit(1);
-		  */
-		}
-	  }
-	}
-  }
-  return val;
-}
-    
-double rys_coulomb_repulsion(double xa,double ya,double za,double norma,
-			 int la,int ma,int na,double alphaa,
-			 double xb,double yb,double zb,double normb,
-			 int lb,int mb,int nb,double alphab,
-			 double xc,double yc,double zc,double normc,
-			 int lc,int mc,int nc,double alphac,
-			 double xd,double yd,double zd,double normd,
-			 int ld,int md,int nd,double alphad){
-
-  int norder,i;
-  double A,B,xp,yp,zp,xq,yq,zq,rpq2,X,rho,sum,t,Ix,Iy,Iz;
-  
-  norder = (la+ma+na+lb+nb+mb+lc+mc+nc+ld+md+nd)/2 + 1;
-  A = alphaa+alphab; 
-  B = alphac+alphad;
-  rho = A*B/(A+B);
-
-  xp = product_center_1D(alphaa,xa,alphab,xb);
-  yp = product_center_1D(alphaa,ya,alphab,yb);
-  zp = product_center_1D(alphaa,za,alphab,zb);
-  xq = product_center_1D(alphac,xc,alphad,xd);
-  yq = product_center_1D(alphac,yc,alphad,yd);
-  zq = product_center_1D(alphac,zc,alphad,zd);
-  rpq2 = dist2(xp,yp,zp,xq,yq,zq);
-
-  X = rpq2*rho;
-
-  double roots[norder],weights[norder];
-  double G[la+lb+ma+mb+na+nb+1][MAXROOTS];
-
-  Roots(norder,X, roots,weights); // get currect roots/weights
-
-  sum = 0.;
-  for (i=0; i<norder; i++){
-    t = roots[i];
-    Ix = Int1d(t,la,lb,lc,ld,xa,xb,xc,xd,
-	       alphaa,alphab,alphac,alphad, G);
-    Iy = Int1d(t,ma,mb,mc,md,ya,yb,yc,yd,
-	       alphaa,alphab,alphac,alphad, G);
-    Iz = Int1d(t,na,nb,nc,nd,za,zb,zc,zd,
-	       alphaa,alphab,alphac,alphad, G);
-    sum = sum + Ix*Iy*Iz*weights[i]; /* ABD eq 5 & 9 */
-  }
-  return 2*sqrt(rho/M_PI)*norma*normb*normc*normd*sum; /* ABD eq 5 & 9 */
+__device__ int cuda_fact(int n){
+  if (n <= 1) return 1;
+  return n*cuda_fact(n-1);
 }
 
-void Roots(int n, double X, double roots[], double weights[]){
+__device__ int cuda_binomial(int a, int b){
+	return cuda_fact(a)/(cuda_fact(b)*cuda_fact(a-b));
+}
+
+__device__ void cuda_Roots(int n, double X, double roots[], double weights[]){
   if (n <= 3)
-    Root123(n,X, roots,weights);
+    cuda_Root123(n,X, roots,weights);
   else if (n==4) 
-    Root4(X, roots,weights);
+    cuda_Root4(X, roots,weights);
   else if (n==5)
-    Root5(X, roots,weights);
+    cuda_Root5(X, roots,weights);
   else
-    Root6(n,X, roots,weights);
+    cuda_Root6(n,X, roots,weights);
   return;
 }
 
-
-void Root123(int n, double X, double roots[], double weights[]){
+__device__ void cuda_Root123(int n, double X, double roots[], double weights[]){
 
   double R12, PIE4, R22, W22, R13, R23, W23, R33, W33;
   double RT1=0,RT2=0,RT3=0,WW1=0,WW2=0,WW3=0;
@@ -602,7 +478,7 @@ void Root123(int n, double X, double roots[], double weights[]){
   return;
 }
 
-void Root4(double X, double roots[], double weights[]){
+__device__ void cuda_Root4(double X, double roots[], double weights[]){
   double R14,PIE4,R24,W24,R34,W34,R44,W44;
   double RT1=0,RT2=0,RT3=0,RT4=0,WW1=0,WW2=0,WW3=0,WW4=0;
   double Y,E;
@@ -968,7 +844,7 @@ void Root4(double X, double roots[], double weights[]){
   return;
 }
 
-void Root5(double X, double roots[], double weights[]){
+__device__ void cuda_Root5(double X, double roots[], double weights[]){
   double R15,PIE4,R25,W25,R35,W35,R45,W45,R55,W55;
   double RT1=0,RT2=0,RT3=0,RT4=0,RT5=0,
     WW1=0,WW2=0,WW3=0,WW4=0,WW5=0;
@@ -1473,13 +1349,12 @@ void Root5(double X, double roots[], double weights[]){
   return;
 }
 
-void Root6(int n,double X, double roots[], double weights[]){
-  fprintf(stderr, "Root6 not implemented yet\n");
-  exit(1);
-  return ;
+__device__ void cuda_Root6(int n,double X, double roots[], double weights[]){
+  // Root6 not implemented yet
+  return;
 }
 
-double Int1d(double t,int i,int j,int k, int l,
+__device__ double cuda_Int1d(double t,int i,int j,int k, int l,
 	     double xi,double xj, double xk,double xl,
 	     double alphai,double alphaj,double alphak,double alphal,
 		 double G[][MAXROOTS])
@@ -1529,16 +1404,66 @@ double Int1d(double t,int i,int j,int k, int l,
     }
   }
 
-
   // Compute and output I(i,j,k,l) from I(i+j,0,k+l,0) (G) 
   double ijkl = 0.0;
   for (m=0; m<l+1; m++){
     double ijm0 = 0.0;
     for (n=0; n<j+1; n++) // I(i,j,m,0)<-I(n,0,m,0)  
-      ijm0 += binomial(j,n)*pow(xij,j-n)*G[n+i][m+k];
-    ijkl += binomial(l,m)*pow(xkl,l-m)*ijm0; // I(i,j,k,l)<-I(i,j,m,0) 
+      ijm0 += cuda_binomial(j,n)*pow(xij,j-n)*G[n+i][m+k];
+    ijkl += cuda_binomial(l,m)*pow(xkl,l-m)*ijm0; // I(i,j,k,l)<-I(i,j,m,0) 
   }
 
   return ijkl;
 }
 
+__global__ void cuda_rys_eri(double xa,double ya,double za,double norma,
+			 int la,int ma,int na,double alphaa,
+			 double xb,double yb,double zb,double normb,
+			 int lb,int mb,int nb,double alphab,
+			 double xc,double yc,double zc,double normc,
+			 int lc,int mc,int nc,double alphac,
+			 double xd,double yd,double zd,double normd,
+			 int ld,int md,int nd,double alphad,
+			 double *p_eri)
+{
+  int norder,i;
+  double A,B,xp,yp,zp,xq,yq,zq,rpq2,X,rho,sum,t,Ix,Iy,Iz;
+  
+  norder = (la+ma+na+lb+nb+mb+lc+mc+nc+ld+md+nd)/2 + 1;
+  A = alphaa+alphab; 
+  B = alphac+alphad;
+  rho = A*B/(A+B);
+
+
+  xp = (alphaa*xa+alphab*xb)/A;
+  yp = (alphaa*ya+alphab*yb)/A;
+  zp = (alphaa*za+alphab*zb)/A;
+
+  xq = (alphac*xc+alphad*xd)/B;
+  yq = (alphac*yc+alphad*yd)/B;
+  zq = (alphac*zc+alphad*zd)/B;
+
+  rpq2 = (xp-xq)*(xp-xq)+(yp-yq)*(yp-yq)+(zp-zq)*(zp-zq);
+
+
+  X = rpq2*rho;
+
+  double roots[MAXROOTS],weights[MAXROOTS];
+  double G[MAXROOTS][MAXROOTS];
+
+  cuda_Roots(norder,X, roots,weights); // get currect roots/weights
+
+  sum = 0.;
+  for (i=0; i<norder; i++){
+    t = roots[i];
+    Ix = cuda_Int1d(t,la,lb,lc,ld,xa,xb,xc,xd,
+	       alphaa,alphab,alphac,alphad, G);
+    Iy = cuda_Int1d(t,ma,mb,mc,md,ya,yb,yc,yd,
+	       alphaa,alphab,alphac,alphad, G);
+    Iz = cuda_Int1d(t,na,nb,nc,nd,za,zb,zc,zd,
+	       alphaa,alphab,alphac,alphad, G);
+    sum = sum + Ix*Iy*Iz*weights[i]; /* ABD eq 5 & 9 */
+  }
+
+  *p_eri = 2*sqrt(rho/M_PI)*norma*normb*normc*normd*sum; /* ABD eq 5 & 9 */
+}
