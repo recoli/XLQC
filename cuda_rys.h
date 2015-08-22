@@ -14,13 +14,21 @@ __device__ double cuda_Int1d(double t,int i,int j,int k, int l,
 	     double xi,double xj, double xk,double xl,
 	     double alphai,double alphaj,double alphak,double alphal,
 		 double G[][MAXROOTS]);
-
-__global__ void cuda_rys_eri(double xa,double ya,double za,double norma,
+__device__ double cuda_rys_coulomb_repulsion(double xa,double ya,double za,double norma,
 			 int la,int ma,int na,double alphaa,
 			 double xb,double yb,double zb,double normb,
 			 int lb,int mb,int nb,double alphab,
 			 double xc,double yc,double zc,double normc,
 			 int lc,int mc,int nc,double alphac,
 			 double xd,double yd,double zd,double normd,
-			 int ld,int md,int nd,double alphad,
-			 double *p_eri);
+			 int ld,int md,int nd,double alphad);
+
+__global__ void cuda_rys_eri(double *xa,double *ya,double *za,double *norma,
+							 int *la,int *ma,int *na,double *alphaa,double *acoef,
+							 double *xb,double *yb,double *zb,double *normb,
+							 int *lb,int *mb,int *nb,double *alphab,double *bcoef,
+							 double *xc,double *yc,double *zc,double *normc,
+							 int *lc,int *mc,int *nc,double *alphac,double *ccoef,
+							 double *xd,double *yd,double *zd,double *normd,
+							 int *ld,int *md,int *nd,double *alphad,double *dcoef,
+							 int n_contr_ints, int *start_contr, int *end_contr, double *eri);

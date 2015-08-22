@@ -125,11 +125,10 @@ int main(int argc, char* argv[])
 	// two-electron ingetral
 	int n_combi = p_basis->num * (p_basis->num + 1) / 2;
 	int n_eri = n_combi * (n_combi + 1) / 2;
-	fprintf(stdout, "N_eri = %d\n", n_eri);
+	//fprintf(stdout, "N_eri = %d\n", n_eri);
 	//double *ERI = (double *)my_malloc_2(sizeof(double) * n_eri, "ERI");
 
-	//int a,b,c,d;
-	int a,b;
+	int a,b,c,d;
 	for (a = 0; a < p_basis->num; ++ a)
 	{
 		for (b = 0; b <= a; ++ b)
@@ -157,17 +156,16 @@ int main(int argc, char* argv[])
 			/*
 			// two-electron integral
 			int ij = ij2intindex(a, b);
-			for (c = 0; c < p_basis->num; ++ c)
+			for (c = 0; c <= a; ++ c)
 			{
-				for (d = 0; d <= c; ++ d)
+				int d_max = (a == c) ? b : c;
+				for (d = 0; d <= d_max; ++ d)
 				{
 					int kl = ij2intindex(c, d);
-					if (ij < kl) { continue; }
+					//if (ij < kl) { continue; }
 
 					int ijkl = ij2intindex(ij, kl);
 
-					// use HGP for two-electron integrals
-					//double eri = calc_int_eri_hgp(p_basis, a, b, c, d);
 					double eri = calc_int_eri_rys(p_basis, a, b, c, d);
 
 					ERI[ijkl] = eri;
@@ -176,6 +174,367 @@ int main(int argc, char* argv[])
 			*/
 		}
 	}
+
+
+	// count number of primitive integrals
+	int count_prim = 0;
+	int i,j,k,l;
+	for (a = 0; a < p_basis->num; ++ a)
+	{
+		int lena = p_basis->nprims[a];
+		for (b = 0; b <= a; ++ b)
+		{
+			int lenb = p_basis->nprims[b];
+			for (c = 0; c <= a; ++ c)
+			{
+				int lenc = p_basis->nprims[c];
+				int d_max = (a == c) ? b : c;
+				for (d = 0; d <= d_max; ++ d)
+				{
+					int lend = p_basis->nprims[d];
+        
+					for (i=0; i<lena; i++)
+						for (j=0; j<lenb; j++)
+							for (k=0; k<lenc; k++)
+								for (l=0; l<lend; l++)
+									++ count_prim;
+				}
+			}
+		}
+	}
+
+	// allocate memory for arrays on host
+	size_t n_CI_bytes = sizeof(double) * n_eri;
+	size_t n_CI_bytes_int = sizeof(int) * n_eri;
+	size_t n_PI_bytes = sizeof(double) * count_prim;
+
+	double *h_xa = (double *)my_malloc(n_CI_bytes);
+	double *h_ya = (double *)my_malloc(n_CI_bytes);
+	double *h_za = (double *)my_malloc(n_CI_bytes);
+	double *h_anorm = (double *)my_malloc(n_PI_bytes);
+	double *h_aexps = (double *)my_malloc(n_PI_bytes);
+	double *h_acoef = (double *)my_malloc(n_PI_bytes);
+	int *h_la = (int *)my_malloc(n_CI_bytes_int);
+	int *h_ma = (int *)my_malloc(n_CI_bytes_int);
+	int *h_na = (int *)my_malloc(n_CI_bytes_int);
+
+	double *h_xb = (double *)my_malloc(n_CI_bytes);
+	double *h_yb = (double *)my_malloc(n_CI_bytes);
+	double *h_zb = (double *)my_malloc(n_CI_bytes);
+	double *h_bnorm = (double *)my_malloc(n_PI_bytes);
+	double *h_bexps = (double *)my_malloc(n_PI_bytes);
+	double *h_bcoef = (double *)my_malloc(n_PI_bytes);
+	int *h_lb = (int *)my_malloc(n_CI_bytes_int);
+	int *h_mb = (int *)my_malloc(n_CI_bytes_int);
+	int *h_nb = (int *)my_malloc(n_CI_bytes_int);
+
+	double *h_xc = (double *)my_malloc(n_CI_bytes);
+	double *h_yc = (double *)my_malloc(n_CI_bytes);
+	double *h_zc = (double *)my_malloc(n_CI_bytes);
+	double *h_cnorm = (double *)my_malloc(n_PI_bytes);
+	double *h_cexps = (double *)my_malloc(n_PI_bytes);
+	double *h_ccoef = (double *)my_malloc(n_PI_bytes);
+	int *h_lc = (int *)my_malloc(n_CI_bytes_int);
+	int *h_mc = (int *)my_malloc(n_CI_bytes_int);
+	int *h_nc = (int *)my_malloc(n_CI_bytes_int);
+
+	double *h_xd = (double *)my_malloc(n_CI_bytes);
+	double *h_yd = (double *)my_malloc(n_CI_bytes);
+	double *h_zd = (double *)my_malloc(n_CI_bytes);
+	double *h_dnorm = (double *)my_malloc(n_PI_bytes);
+	double *h_dexps = (double *)my_malloc(n_PI_bytes);
+	double *h_dcoef = (double *)my_malloc(n_PI_bytes);
+	int *h_ld = (int *)my_malloc(n_CI_bytes_int);
+	int *h_md = (int *)my_malloc(n_CI_bytes_int);
+	int *h_nd = (int *)my_malloc(n_CI_bytes_int);
+
+	double *h_eri = (double *)my_malloc(n_CI_bytes);
+	int *start_contr = (int *)my_malloc(n_CI_bytes_int);
+	int *end_contr = (int *)my_malloc(n_CI_bytes_int);
+
+	// fill arrays on host
+	// index counts primitive integrals
+	// index_contr counts contracted integrals
+	int index = 0;
+	int index_contr = 0;
+
+	for (a = 0; a < p_basis->num; ++ a)
+	{
+		int lena = p_basis->nprims[a];
+		for (b = 0; b <= a; ++ b)
+		{
+			int lenb = p_basis->nprims[b];
+			for (c = 0; c <= a; ++ c)
+			{
+				int lenc = p_basis->nprims[c];
+				int d_max = (a == c) ? b : c;
+				for (d = 0; d <= d_max; ++ d)
+				{
+					int lend = p_basis->nprims[d];
+
+					start_contr[index_contr] = index;
+
+					h_xa[index_contr] = p_basis->xbas[a][0];
+					h_ya[index_contr] = p_basis->xbas[a][1];
+					h_za[index_contr] = p_basis->xbas[a][2];
+
+					h_la[index_contr] = p_basis->lmn[a][0];
+					h_ma[index_contr] = p_basis->lmn[a][1];
+					h_na[index_contr] = p_basis->lmn[a][2];
+        
+					h_xb[index_contr] = p_basis->xbas[b][0];
+					h_yb[index_contr] = p_basis->xbas[b][1];
+					h_zb[index_contr] = p_basis->xbas[b][2];
+                                    
+					h_lb[index_contr] = p_basis->lmn[b][0];
+					h_mb[index_contr] = p_basis->lmn[b][1];
+					h_nb[index_contr] = p_basis->lmn[b][2];
+
+					h_xc[index_contr] = p_basis->xbas[c][0];
+					h_yc[index_contr] = p_basis->xbas[c][1];
+					h_zc[index_contr] = p_basis->xbas[c][2];
+                                    
+					h_lc[index_contr] = p_basis->lmn[c][0];
+					h_mc[index_contr] = p_basis->lmn[c][1];
+					h_nc[index_contr] = p_basis->lmn[c][2];
+
+					h_xd[index_contr] = p_basis->xbas[d][0];
+					h_yd[index_contr] = p_basis->xbas[d][1];
+					h_zd[index_contr] = p_basis->xbas[d][2];
+                                    
+					h_ld[index_contr] = p_basis->lmn[d][0];
+					h_md[index_contr] = p_basis->lmn[d][1];
+					h_nd[index_contr] = p_basis->lmn[d][2];
+
+					int i,j,k,l;
+					for (i=0; i<lena; i++)
+					{
+						for (j=0; j<lenb; j++)
+						{
+							for (k=0; k<lenc; k++)
+							{
+								for (l=0; l<lend; l++)
+								{
+									h_anorm[index] = p_basis->norm[a][i];
+									h_aexps[index] = p_basis->expon[a][i];
+									h_acoef[index] = p_basis->coef[a][i];
+
+									h_bnorm[index] = p_basis->norm[b][j];
+									h_bexps[index] = p_basis->expon[b][j];
+									h_bcoef[index] = p_basis->coef[b][j];
+
+									h_cnorm[index] = p_basis->norm[c][k];
+									h_cexps[index] = p_basis->expon[c][k];
+									h_ccoef[index] = p_basis->coef[c][k];
+
+									h_dnorm[index] = p_basis->norm[d][l];
+									h_dexps[index] = p_basis->expon[d][l];
+									h_dcoef[index] = p_basis->coef[d][l];
+
+									++ index;
+								}
+							}
+						}
+					}
+
+					end_contr[index_contr] = index - 1;
+
+					++ index_contr;
+				}
+			}
+		}
+	}
+	printf("Num_Prim_Ints  = %d (%d)\n", index, count_prim);
+	printf("Num_Contr_Ints = %d (%d)\n", index_contr, n_eri);
+
+	// initialize arrays on device
+	double *dev_xa, *dev_ya, *dev_za;
+	double *dev_xb, *dev_yb, *dev_zb;
+	double *dev_xc, *dev_yc, *dev_zc;
+	double *dev_xd, *dev_yd, *dev_zd;
+	double *dev_anorm, *dev_aexps, *dev_acoef;
+	double *dev_bnorm, *dev_bexps, *dev_bcoef;
+	double *dev_cnorm, *dev_cexps, *dev_ccoef;
+	double *dev_dnorm, *dev_dexps, *dev_dcoef;
+	int *dev_la, *dev_ma, *dev_na;
+	int *dev_lb, *dev_mb, *dev_nb;
+	int *dev_lc, *dev_mc, *dev_nc;
+	int *dev_ld, *dev_md, *dev_nd;
+
+	dev_xa = NULL; dev_ya = NULL; dev_za = NULL;
+	dev_xb = NULL; dev_yb = NULL; dev_zb = NULL;
+	dev_xc = NULL; dev_yc = NULL; dev_zc = NULL;
+	dev_xd = NULL; dev_yd = NULL; dev_zd = NULL;
+	dev_anorm = NULL; dev_aexps = NULL; dev_acoef = NULL;
+	dev_bnorm = NULL; dev_bexps = NULL; dev_bcoef = NULL;
+	dev_cnorm = NULL; dev_cexps = NULL; dev_ccoef = NULL;
+	dev_dnorm = NULL; dev_dexps = NULL; dev_dcoef = NULL;
+	dev_la = NULL; dev_ma = NULL; dev_na = NULL;
+	dev_lb = NULL; dev_mb = NULL; dev_nb = NULL;
+	dev_lc = NULL; dev_mc = NULL; dev_nc = NULL;
+	dev_ld = NULL; dev_md = NULL; dev_nd = NULL;
+
+	double *dev_eri = NULL;
+	int *dev_start_contr = NULL;
+	int *dev_end_contr = NULL;
+
+	// allocate memories for arrays on device
+	fprintf(stdout, "Mem_on_Device = %zu MB\n",
+			(n_CI_bytes*15 + n_PI_bytes*12 + n_CI_bytes_int*12) / 1000000);
+
+	cudaMalloc((void**)&dev_xa, n_CI_bytes);
+	cudaMalloc((void**)&dev_ya, n_CI_bytes);
+	cudaMalloc((void**)&dev_za, n_CI_bytes);
+	cudaMalloc((void**)&dev_xb, n_CI_bytes);
+	cudaMalloc((void**)&dev_yb, n_CI_bytes);
+	cudaMalloc((void**)&dev_zb, n_CI_bytes);
+	cudaMalloc((void**)&dev_xc, n_CI_bytes);
+	cudaMalloc((void**)&dev_yc, n_CI_bytes);
+	cudaMalloc((void**)&dev_zc, n_CI_bytes);
+	cudaMalloc((void**)&dev_xd, n_CI_bytes);
+	cudaMalloc((void**)&dev_yd, n_CI_bytes);
+	cudaMalloc((void**)&dev_zd, n_CI_bytes);
+
+	if(dev_xa == NULL || dev_ya == NULL || dev_za == NULL ||
+	   dev_xb == NULL || dev_yb == NULL || dev_zb == NULL ||
+	   dev_xc == NULL || dev_yc == NULL || dev_zc == NULL ||
+	   dev_xd == NULL || dev_yd == NULL || dev_zd == NULL)
+	{
+		printf("Error: cannot cudaMalloc for x_basis!\n");
+		exit(1);
+	}
+
+	cudaMalloc((void**)&dev_anorm, n_PI_bytes);
+	cudaMalloc((void**)&dev_aexps, n_PI_bytes);
+	cudaMalloc((void**)&dev_acoef, n_PI_bytes);
+	cudaMalloc((void**)&dev_bnorm, n_PI_bytes);
+	cudaMalloc((void**)&dev_bexps, n_PI_bytes);
+	cudaMalloc((void**)&dev_bcoef, n_PI_bytes);
+	cudaMalloc((void**)&dev_cnorm, n_PI_bytes);
+	cudaMalloc((void**)&dev_cexps, n_PI_bytes);
+	cudaMalloc((void**)&dev_ccoef, n_PI_bytes);
+	cudaMalloc((void**)&dev_dnorm, n_PI_bytes);
+	cudaMalloc((void**)&dev_dexps, n_PI_bytes);
+	cudaMalloc((void**)&dev_dcoef, n_PI_bytes);
+
+	if(dev_anorm == NULL || dev_aexps == NULL || dev_acoef == NULL ||
+	   dev_bnorm == NULL || dev_bexps == NULL || dev_bcoef == NULL ||
+	   dev_cnorm == NULL || dev_cexps == NULL || dev_ccoef == NULL ||
+	   dev_dnorm == NULL || dev_dexps == NULL || dev_dcoef == NULL)
+	{
+		printf("Error: cannot cudaMalloc for a_basis!\n");
+		exit(1);
+	}
+
+	cudaMalloc((void**)&dev_la, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_ma, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_na, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_lb, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_mb, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_nb, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_lc, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_mc, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_nc, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_ld, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_md, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_nd, n_CI_bytes_int);
+
+	if(dev_la == NULL || dev_ma == NULL || dev_na == NULL ||
+	   dev_lb == NULL || dev_mb == NULL || dev_nb == NULL ||
+	   dev_lc == NULL || dev_mc == NULL || dev_nc == NULL ||
+	   dev_ld == NULL || dev_md == NULL || dev_nd == NULL)
+	{
+		printf("Error: cannot cudaMalloc for l_basis!\n");
+		exit(1);
+	}
+
+	cudaMalloc((void**)&dev_eri, n_CI_bytes);
+	cudaMalloc((void**)&dev_start_contr, n_CI_bytes);
+	cudaMalloc((void**)&dev_end_contr, n_CI_bytes);
+
+	if(dev_eri == NULL || dev_start_contr == NULL || dev_end_contr == NULL)
+	{
+		printf("Error: cannot cudaMalloc for dev_eri!\n");
+		exit(1);
+	}
+
+	// copy data from host to device
+	cudaMemcpy(dev_xa, h_xa, n_CI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_ya, h_ya, n_CI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_za, h_za, n_CI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_xb, h_xb, n_CI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_yb, h_yb, n_CI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_zb, h_zb, n_CI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_xc, h_xc, n_CI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_yc, h_yc, n_CI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_zc, h_zc, n_CI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_xd, h_xd, n_CI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_yd, h_yd, n_CI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_zd, h_zd, n_CI_bytes, cudaMemcpyHostToDevice);
+
+	cudaMemcpy(dev_anorm, h_anorm, n_PI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_aexps, h_aexps, n_PI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_acoef, h_acoef, n_PI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_bnorm, h_bnorm, n_PI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_bexps, h_bexps, n_PI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_bcoef, h_bcoef, n_PI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_cnorm, h_cnorm, n_PI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_cexps, h_cexps, n_PI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_ccoef, h_ccoef, n_PI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_dnorm, h_dnorm, n_PI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_dexps, h_dexps, n_PI_bytes, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_dcoef, h_dcoef, n_PI_bytes, cudaMemcpyHostToDevice);
+
+	cudaMemcpy(dev_la, h_la, n_CI_bytes_int, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_ma, h_ma, n_CI_bytes_int, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_na, h_na, n_CI_bytes_int, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_lb, h_lb, n_CI_bytes_int, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_mb, h_mb, n_CI_bytes_int, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_nb, h_nb, n_CI_bytes_int, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_lc, h_lc, n_CI_bytes_int, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_mc, h_mc, n_CI_bytes_int, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_nc, h_nc, n_CI_bytes_int, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_ld, h_ld, n_CI_bytes_int, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_md, h_md, n_CI_bytes_int, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_nd, h_nd, n_CI_bytes_int, cudaMemcpyHostToDevice);
+
+	cudaMemcpy(dev_start_contr, start_contr, n_CI_bytes_int, cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_end_contr,   end_contr,   n_CI_bytes_int, cudaMemcpyHostToDevice);
+
+	// set block_size and grid_size
+	const size_t block_size = 32;
+	size_t grid_size = n_eri / block_size;
+	// deal with a possible partial final block
+	if (n_eri % block_size) { ++ grid_size; }
+
+	// launch the kernel to calculate two-electron integrals on GPU
+	cuda_rys_eri<<<grid_size, block_size>>>
+		(dev_xa,dev_ya,dev_za,dev_anorm,
+		dev_la,dev_ma,dev_na,dev_aexps,dev_acoef,
+		dev_xb,dev_yb,dev_zb,dev_bnorm,
+		dev_lb,dev_mb,dev_nb,dev_bexps,dev_bcoef,
+		dev_xc,dev_yc,dev_zc,dev_cnorm,
+		dev_lc,dev_mc,dev_nc,dev_cexps,dev_ccoef,
+		dev_xd,dev_yd,dev_zd,dev_dnorm,
+		dev_ld,dev_md,dev_nd,dev_dexps,dev_dcoef,
+		n_eri, dev_start_contr, dev_end_contr, dev_eri);
+
+	// copy the results back to host
+	cudaMemcpy(h_eri, dev_eri, n_CI_bytes, cudaMemcpyDeviceToHost);
+
+	/* just for test...
+	int check_passed = 1;
+	for (i = 0; i < n_eri; ++ i)
+	{
+		double diff = fabs(h_eri[i]-ERI[i]);
+		if (diff > 1e-12)
+		{
+			check_passed = 0;
+			printf("%-8d %18.12f %18.12f   %18.12f\n", i, ERI[i], h_eri[i], h_eri[i]-ERI[i]);
+		}
+	}
+	if (check_passed) { printf("Check passed!\n"); }
+	*/
 
 
 	//====== start SCF calculation ========
@@ -256,28 +615,11 @@ int main(int argc, char* argv[])
 			"Iter", "E_total", "delta_E", "rms_D", "delta_DIIS");
 
 
-
-	/* just for test purposes ...
-	double test_eri = 0.0;
-	double *dev_eri;
-	cudaMalloc((void**)&dev_eri, sizeof(double));
-
-	cuda_rys_eri<<<1, 1>>>
-		(0.000000000000,-0.143225816552,0.000000000000,154.053947068123,0,0,0,1297.230000000000,
-		 0.000000000000,-0.143225816552,0.000000000000,635.840346677400,0,0,0,8588.500000000000,
-		 0.000000000000,-0.143225816552,0.000000000000,51.284458790335,0,0,0,299.296000000000,
-		 0.000000000000,-0.143225816552,0.000000000000,635.840346677400,0,0,0,8588.500000000000,
-		 dev_eri);
-
-	cudaMemcpy(&test_eri, dev_eri, sizeof(double), cudaMemcpyDeviceToHost);
-	printf("cuda_eri = %.12e\n",test_eri
-		 *0.014385900000*0.001895150000*0.070732000000*0.001895150000);
-	*/
-
-
+	/*
 	// Q: sqrt(ab|ab) for prescreening of two-electron integrals
 	gsl_matrix *Q = gsl_matrix_alloc(p_basis->num, p_basis->num);
 	form_Q(p_basis, Q);
+	*/
 
 
 	// start SCF iterations
@@ -292,7 +634,10 @@ int main(int argc, char* argv[])
 		// compute new density matrix
 
 		//form_G(p_basis->num, D_prev, ERI, G);
-		direct_form_G(p_basis, D_prev, Q, G);
+		//direct_form_G(p_basis, D_prev, Q, G);
+
+		// use GPU-calculated two-electron integrals
+		form_G(p_basis->num, D_prev, h_eri, G);
 
 #ifdef DEBUG
 		printf("G:\n"); my_print_matrix(G);
@@ -392,7 +737,7 @@ int main(int argc, char* argv[])
 	gsl_matrix_free(V);
 	//free(ERI);
 
-	gsl_matrix_free(Q);
+	//gsl_matrix_free(Q);
 
 	// free matrices and vector for SCF
 	gsl_matrix_free(H_core);

@@ -1416,15 +1416,14 @@ __device__ double cuda_Int1d(double t,int i,int j,int k, int l,
   return ijkl;
 }
 
-__global__ void cuda_rys_eri(double xa,double ya,double za,double norma,
+__device__ double cuda_rys_coulomb_repulsion(double xa,double ya,double za,double norma,
 			 int la,int ma,int na,double alphaa,
 			 double xb,double yb,double zb,double normb,
 			 int lb,int mb,int nb,double alphab,
 			 double xc,double yc,double zc,double normc,
 			 int lc,int mc,int nc,double alphac,
 			 double xd,double yd,double zd,double normd,
-			 int ld,int md,int nd,double alphad,
-			 double *p_eri)
+			 int ld,int md,int nd,double alphad)
 {
   int norder,i;
   double A,B,xp,yp,zp,xq,yq,zq,rpq2,X,rho,sum,t,Ix,Iy,Iz;
@@ -1465,5 +1464,45 @@ __global__ void cuda_rys_eri(double xa,double ya,double za,double norma,
     sum = sum + Ix*Iy*Iz*weights[i]; /* ABD eq 5 & 9 */
   }
 
-  *p_eri = 2*sqrt(rho/M_PI)*norma*normb*normc*normd*sum; /* ABD eq 5 & 9 */
+  return 2.0*sqrt(rho/M_PI)*norma*normb*normc*normd*sum; /* ABD eq 5 & 9 */
+}
+
+
+__global__ void cuda_rys_eri(double *xa,double *ya,double *za,double *norma,
+							 int *la,int *ma,int *na,double *alphaa,double *acoef,
+							 double *xb,double *yb,double *zb,double *normb,
+							 int *lb,int *mb,int *nb,double *alphab,double *bcoef,
+							 double *xc,double *yc,double *zc,double *normc,
+							 int *lc,int *mc,int *nc,double *alphac,double *ccoef,
+							 double *xd,double *yd,double *zd,double *normd,
+							 int *ld,int *md,int *nd,double *alphad,double *dcoef,
+							 int n_contr_ints, int *start_contr, int *end_contr, double *eri)
+{
+	// compute the global element index this thread should process
+	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
+
+	// i corresponds to 
+
+	// avoid accessing out of bounds elements
+	if(i < n_contr_ints)
+	{
+		int start = start_contr[i];
+		int end = end_contr[i];
+
+		double this_eri = 0.0;
+		for (int k = start; k <= end; ++ k)
+		{
+			this_eri += cuda_rys_coulomb_repulsion(
+				xa[i],ya[i],za[i],norma[k],
+				la[i],ma[i],na[i],alphaa[k],
+				xb[i],yb[i],zb[i],normb[k],
+				lb[i],mb[i],nb[i],alphab[k],
+				xc[i],yc[i],zc[i],normc[k],
+				lc[i],mc[i],nc[i],alphac[k],
+				xd[i],yd[i],zd[i],normd[k],
+				ld[i],md[i],nd[i],alphad[k]) * 
+				acoef[k] * bcoef[k] * ccoef[k] * dcoef[k];
+		}
+		eri[i] = this_eri;
+	}
 }
