@@ -290,7 +290,8 @@ void parse_basis(Atom *p_atom, Basis *p_basis)
 				else if (0 == strcmp(cart_type, "SP")) { elem_n_basis[ielem] += 4; }
 				else if (0 == strcmp(cart_type, "P"))  { elem_n_basis[ielem] += 3; }
 				else if (0 == strcmp(cart_type, "D"))  { elem_n_basis[ielem] += 6; }
-				else if (0 == strcmp(cart_type, "F"))  { elem_n_basis[ielem] += 10; }
+				// for now disable F function which is not implemented in Rys quadrature
+				//else if (0 == strcmp(cart_type, "F"))  { elem_n_basis[ielem] += 10; }
 				else 
 				{ 
 					fprintf(stderr, "Error: Cartesian type %s not supported!\n", cart_type); 
