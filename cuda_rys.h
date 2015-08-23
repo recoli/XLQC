@@ -41,7 +41,7 @@ __device__ double cuda_rys_coulomb_repulsion(double xa,double ya,double za,doubl
 				int lc,int mc,int nc,double alphac,
 				double xd,double yd,double zd,double normd,
 				int ld,int md,int nd,double alphad);
-
+/*
 __global__ void cuda_rys_eri(double *xa,double *ya,double *za,double *norma,
 				int *la,int *ma,int *na,double *alphaa,double *acoef,
 				double *xb,double *yb,double *zb,double *normb,
@@ -51,3 +51,10 @@ __global__ void cuda_rys_eri(double *xa,double *ya,double *za,double *norma,
 				double *xd,double *yd,double *zd,double *normd,
 				int *ld,int *md,int *nd,double *alphad,double *dcoef,
 				int n_contr_ints, int *start_contr, int *end_contr, double *eri);
+*/
+
+__global__ void cuda_rys_eri_2d(double *xa,double *ya,double *za,
+				int *la,int *ma,int *na,double *aexps,double *acoef,
+				double *xb,double *yb,double *zb,
+				int *lb,int *mb,int *nb,double *bexps,double *bcoef,
+				int n_combi, int *start_contr, int *end_contr, double *eri);

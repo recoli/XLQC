@@ -1492,6 +1492,7 @@ __device__ double cuda_rys_coulomb_repulsion(double xa,double ya,double za,doubl
 }
 
 
+/*
 __global__ void cuda_rys_eri(double *xa,double *ya,double *za,double *norma,
 							 int *la,int *ma,int *na,double *alphaa,double *acoef,
 							 double *xb,double *yb,double *zb,double *normb,
@@ -1529,4 +1530,53 @@ __global__ void cuda_rys_eri(double *xa,double *ya,double *za,double *norma,
 		}
 		eri[i] = this_eri;
 	}
+}
+*/
+
+__global__ void cuda_rys_eri_2d(double *xa,double *ya,double *za,
+				int *la,int *ma,int *na,double *aexps,double *acoef,
+				double *xb,double *yb,double *zb,
+				int *lb,int *mb,int *nb,double *bexps,double *bcoef,
+				int n_combi, int *start_contr, int *end_contr, double *eri)
+{
+	// do the usual computation separately in each dimension:
+	int idx_i = blockIdx.x * blockDim.x + threadIdx.x;
+	int idx_k = blockIdx.y * blockDim.y + threadIdx.y;
+
+	// avoid accessing out of bounds elements
+	if (idx_i >= n_combi || idx_k >= n_combi || idx_i < idx_k) { return; }
+	int index = idx_i * (idx_i + 1) / 2 + idx_k;
+
+	int start_i = start_contr[idx_i];
+	int end_i   = end_contr[idx_i];
+	int start_k = start_contr[idx_k];
+	int end_k   = end_contr[idx_k];
+
+	double xai[3] = {xa[idx_i],ya[idx_i],za[idx_i]};
+	double xbi[3] = {xb[idx_i],yb[idx_i],zb[idx_i]};
+	double lai[3] = {la[idx_i],ma[idx_i],na[idx_i]};
+	double lbi[3] = {lb[idx_i],mb[idx_i],nb[idx_i]};
+
+	double xak[3] = {xa[idx_k],ya[idx_k],za[idx_k]};
+	double xbk[3] = {xb[idx_k],yb[idx_k],zb[idx_k]};
+	double lak[3] = {la[idx_k],ma[idx_k],na[idx_k]};
+	double lbk[3] = {lb[idx_k],mb[idx_k],nb[idx_k]};
+
+	double this_eri = 0.0;
+	for (int i = start_i; i <= end_i; ++ i)
+	{
+		for (int k = start_k; k <= end_k; ++ k)
+		{
+			this_eri += cuda_rys_coulomb_repulsion(
+				xai[0],xai[1],xai[2],acoef[i],
+				lai[0],lai[1],lai[2],aexps[i],
+				xbi[0],xbi[1],xbi[2],bcoef[i],
+				lbi[0],lbi[1],lbi[2],bexps[i],
+				xak[0],xak[1],xak[2],acoef[k],
+				lak[0],lak[1],lak[2],aexps[k],
+				xbk[0],xbk[1],xbk[2],bcoef[k],
+				lbk[0],lbk[1],lbk[2],bexps[k]);
+		}
+	}
+	eri[index] = this_eri;
 }
