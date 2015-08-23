@@ -29,9 +29,11 @@ __device__ void cuda_Root123(int n, double X, double roots[], double weights[]);
 __device__ void cuda_Root4(double X, double roots[], double weights[]);
 __device__ void cuda_Root5(double X, double roots[], double weights[]);
 __device__ void cuda_Root6(int n,double X, double roots[], double weights[]);
-__device__ double cuda_Int1d(double t,int i,int j,int k, int l,
-				double xi,double xj, double xk,double xl,
-				double alphai,double alphaj,double alphak,double alphal,
+__device__ double cuda_Int1d(int i, int j,int k, int l,
+				double xi, double xj, double xk, double xl,
+	     		double alpha_ij_A, double alpha_kl_B, double sqrt_AB,
+			    double A, double B, double Px, double Qx,
+			    double inv_t1, double B00, double B1, double B1p, 
 				double G[][MAXROOTS]);
 __device__ double cuda_rys_coulomb_repulsion(double xa,double ya,double za,double norma,
 				int la,int ma,int na,double alphaa,

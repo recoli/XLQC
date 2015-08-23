@@ -1378,62 +1378,55 @@ __device__ void cuda_Root6(int n,double X, double roots[], double weights[]){
   return;
 }
 
-__device__ double cuda_Int1d(double t,int i,int j,int k, int l,
-	     double xi,double xj, double xk,double xl,
-	     double alphai,double alphaj,double alphak,double alphal,
+__device__ double cuda_Int1d(int i, int j, int k, int l,
+	     double xi, double xj, double xk, double xl,
+	     double alpha_ij_A, double alpha_kl_B, double sqrt_AB,
+		 double A, double B, double Px, double Qx,
+		 double inv_t1, double B00, double B1, double B1p, 
 		 double G[][MAXROOTS])
 {
   // Form G(n,m)=I(n,0,m,0) intermediate values for a Rys polynomial 
-  int n,m,a,b;
-  double A,B,Px,Qx;
-
-  n = i+j;
-  m = k+l;
-  A = alphai+alphaj;
-  B = alphak+alphal;
-  Px = (alphai*xi+alphaj*xj)/A;
-  Qx = (alphak*xk+alphal*xl)/B;
+  int n = i+j;
+  int m = k+l;
 
   double xij = xi-xj;
   double xkl = xk-xl;
 
   // RecurFactorsGamess
-  double fff,B00,B1,B1p,C,Cp;
-  double inv_t1 = 1.0 / (1 + t);
-
-  fff = t/(A+B) * inv_t1;
-  B00 = 0.5*fff;
-  B1  = 0.5 / A * inv_t1 + B00;
-  B1p = 0.5 / B * inv_t1 + B00;
-  C   = (Px-xi) * inv_t1 + (B*(Qx-xi)+A*(Px-xi))*fff;
-  Cp  = (Qx-xk) * inv_t1 + (B*(Qx-xk)+A*(Px-xk))*fff;
+  double C  = (Px-xi) * inv_t1 + (B*(Qx-xi)+A*(Px-xi))*B00*2.0;
+  double Cp = (Qx-xk) * inv_t1 + (B*(Qx-xk)+A*(Px-xk))*B00*2.0;
 
   // ABD eq 11. 
-  G[0][0] = M_PI*exp(-alphai*alphaj*xij*xij/A
-		     -alphak*alphal*xkl*xkl/B)/sqrt(A*B);
+  G[0][0] = M_PI * exp(-alpha_ij_A*xij*xij -alpha_kl_B*xkl*xkl) / sqrt_AB;
 
-  if (n > 0) G[1][0] = C *G[0][0]; // ABD eq 15 
-  if (m > 0) G[0][1] = Cp*G[0][0]; // ABD eq 16 
+  if (n > 0) { G[1][0] = C *G[0][0]; } // ABD eq 15 
+  if (m > 0) { G[0][1] = Cp*G[0][0]; } // ABD eq 16 
 
-  for (a=2; a<n+1; a++) G[a][0] = B1 *(a-1)*G[a-2][0] + C *G[a-1][0];
-  for (b=2; b<m+1; b++) G[0][b] = B1p*(b-1)*G[0][b-2] + Cp*G[0][b-1];
+  for (int a = 2; a < n+1; ++ a) { G[a][0] = B1 *(a-1)*G[a-2][0] + C *G[a-1][0]; } 
+  for (int b = 2; b < m+1; ++ b) { G[0][b] = B1p*(b-1)*G[0][b-2] + Cp*G[0][b-1]; } 
 
   if ((m>0) && (n>0))
   {
-    for (a=1; a<n+1; a++)
+    for (int a=1; a<n+1; ++a)
     {
       G[a][1] = a*B00*G[a-1][0] + Cp*G[a][0];
-      for (b=2; b<m+1; b++)
+
+      for (int b=2; b<m+1; ++b)
+	  {
         G[a][b] = B1p*(b-1)*G[a][b-2] + a*B00*G[a-1][b-1] + Cp*G[a][b-1];
+	  }
     }
   }
 
   // Compute and output I(i,j,k,l) from I(i+j,0,k+l,0) (G) 
   double ijkl = 0.0;
-  for (m=0; m<l+1; m++){
+  for (int m=0; m<l+1; m++)
+  {
     double ijm0 = 0.0;
-    for (n=0; n<j+1; n++) // I(i,j,m,0)<-I(n,0,m,0)  
+    for (int n=0; n<j+1; n++) // I(i,j,m,0)<-I(n,0,m,0)  
+	{
       ijm0 += cuda_binomial(j,n)*pow(xij,j-n)*G[n+i][m+k];
+	}
     ijkl += cuda_binomial(l,m)*pow(xkl,l-m)*ijm0; // I(i,j,k,l)<-I(i,j,m,0) 
   }
 
@@ -1450,13 +1443,11 @@ __device__ double cuda_rys_coulomb_repulsion(double xa,double ya,double za,doubl
 			 int ld,int md,int nd,double alphad)
 {
   int norder,i;
-  double A,B,xp,yp,zp,xq,yq,zq,rpq2,X,rho,sum,t,Ix,Iy,Iz;
+  double A,B,xp,yp,zp,xq,yq,zq,X,rho,sum,t,Ix,Iy,Iz;
   
   norder = (la+ma+na+lb+nb+mb+lc+mc+nc+ld+md+nd)/2 + 1;
   A = alphaa+alphab; 
   B = alphac+alphad;
-  rho = A*B/(A+B);
-
 
   xp = (alphaa*xa+alphab*xb)/A;
   yp = (alphaa*ya+alphab*yb)/A;
@@ -1466,10 +1457,12 @@ __device__ double cuda_rys_coulomb_repulsion(double xa,double ya,double za,doubl
   yq = (alphac*yc+alphad*yd)/B;
   zq = (alphac*zc+alphad*zd)/B;
 
-  rpq2 = (xp-xq)*(xp-xq)+(yp-yq)*(yp-yq)+(zp-zq)*(zp-zq);
+  rho = A*B/(A+B);
+  X = rho * ((xp-xq)*(xp-xq)+(yp-yq)*(yp-yq)+(zp-zq)*(zp-zq));
 
-
-  X = rpq2*rho;
+  double alpha_ab_A = alphaa * alphab / A;
+  double alpha_cd_B = alphac * alphad / B;
+  double sqrt_AB = sqrt(A * B);
 
   double roots[MAXROOTS],weights[MAXROOTS];
   double G[MAXROOTS][MAXROOTS];
@@ -1479,16 +1472,24 @@ __device__ double cuda_rys_coulomb_repulsion(double xa,double ya,double za,doubl
   sum = 0.;
   for (i=0; i<norder; i++){
     t = roots[i];
-    Ix = cuda_Int1d(t,la,lb,lc,ld,xa,xb,xc,xd,
-	       alphaa,alphab,alphac,alphad, G);
-    Iy = cuda_Int1d(t,ma,mb,mc,md,ya,yb,yc,yd,
-	       alphaa,alphab,alphac,alphad, G);
-    Iz = cuda_Int1d(t,na,nb,nc,nd,za,zb,zc,zd,
-	       alphaa,alphab,alphac,alphad, G);
+
+    double inv_t1, B00, B1, B1p;
+    inv_t1 = 1.0 / (1 + t);
+    B00 = 0.5 * t/(A+B) * inv_t1;
+    B1  = 0.5 / A * inv_t1 + B00;
+    B1p = 0.5 / B * inv_t1 + B00;
+
+    Ix = cuda_Int1d(la,lb,lc,ld, xa,xb,xc,xd,
+	       alpha_ab_A,alpha_cd_B,sqrt_AB, A,B,xp,xq, inv_t1,B00,B1,B1p, G);
+    Iy = cuda_Int1d(ma,mb,mc,md, ya,yb,yc,yd,
+	       alpha_ab_A,alpha_cd_B,sqrt_AB, A,B,yp,yq, inv_t1,B00,B1,B1p, G);
+    Iz = cuda_Int1d(na,nb,nc,nd, za,zb,zc,zd,
+	       alpha_ab_A,alpha_cd_B,sqrt_AB, A,B,zp,zq, inv_t1,B00,B1,B1p, G);
     sum = sum + Ix*Iy*Iz*weights[i]; /* ABD eq 5 & 9 */
   }
 
-  return 2.0*sqrt(rho/M_PI)*norma*normb*normc*normd*sum; /* ABD eq 5 & 9 */
+  // inv_sqrt_pi_2: 2.0*sqrt(1.0/M_PI) = 1.12837916709551255856
+  return 1.12837916709551255856 * sqrt(rho)*norma*normb*normc*normd*sum; /* ABD eq 5 & 9 */
 }
 
 
