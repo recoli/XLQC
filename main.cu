@@ -38,7 +38,7 @@
 #include "basis.h"
 #include "scf.h"
 
-#include "cuda_rys.h"
+#include "cuda_rys_sp.h"
 
 void my_cuda_safe(cudaError_t err, std::string word)
 {
@@ -211,29 +211,29 @@ int main(int argc, char* argv[])
 	}
 
 	// allocate memory for arrays on host
-	size_t n_CI_bytes = sizeof(double) * n_combi;
+	size_t n_CI_bytes = sizeof(float) * n_combi;
 	size_t n_CI_bytes_int = sizeof(int) * n_combi;
-	size_t n_PI_bytes = sizeof(double) * count_prim;
+	size_t n_PI_bytes = sizeof(float) * count_prim;
 	size_t n_ERI_bytes = sizeof(double) * n_eri;
 
-	double *h_xa = (double *)my_malloc(n_CI_bytes);
-	double *h_ya = (double *)my_malloc(n_CI_bytes);
-	double *h_za = (double *)my_malloc(n_CI_bytes);
-	int    *h_la = (int    *)my_malloc(n_CI_bytes_int);
-	int    *h_ma = (int    *)my_malloc(n_CI_bytes_int);
-	int    *h_na = (int    *)my_malloc(n_CI_bytes_int);
-	double *h_aexps = (double *)my_malloc(n_PI_bytes);
-	double *h_acoef = (double *)my_malloc(n_PI_bytes);
+	float *h_xa = (float *)my_malloc(n_CI_bytes);
+	float *h_ya = (float *)my_malloc(n_CI_bytes);
+	float *h_za = (float *)my_malloc(n_CI_bytes);
+	int   *h_la = (int   *)my_malloc(n_CI_bytes_int);
+	int   *h_ma = (int   *)my_malloc(n_CI_bytes_int);
+	int   *h_na = (int   *)my_malloc(n_CI_bytes_int);
+	float *h_aexps = (float *)my_malloc(n_PI_bytes);
+	float *h_acoef = (float *)my_malloc(n_PI_bytes);
 	// note that 'anorm' is absorbed into 'acoef'
 
-	double *h_xb = (double *)my_malloc(n_CI_bytes);
-	double *h_yb = (double *)my_malloc(n_CI_bytes);
-	double *h_zb = (double *)my_malloc(n_CI_bytes);
-	int    *h_lb = (int    *)my_malloc(n_CI_bytes_int);
-	int    *h_mb = (int    *)my_malloc(n_CI_bytes_int);
-	int    *h_nb = (int    *)my_malloc(n_CI_bytes_int);
-	double *h_bexps = (double *)my_malloc(n_PI_bytes);
-	double *h_bcoef = (double *)my_malloc(n_PI_bytes);
+	float *h_xb = (float *)my_malloc(n_CI_bytes);
+	float *h_yb = (float *)my_malloc(n_CI_bytes);
+	float *h_zb = (float *)my_malloc(n_CI_bytes);
+	int   *h_lb = (int   *)my_malloc(n_CI_bytes_int);
+	int   *h_mb = (int   *)my_malloc(n_CI_bytes_int);
+	int   *h_nb = (int   *)my_malloc(n_CI_bytes_int);
+	float *h_bexps = (float *)my_malloc(n_PI_bytes);
+	float *h_bcoef = (float *)my_malloc(n_PI_bytes);
 	// note that 'bnorm' is absorbed into 'bcoef'
 
 	int *h_start_contr = (int *)my_malloc(n_CI_bytes_int);
@@ -298,12 +298,12 @@ int main(int argc, char* argv[])
 	printf("Num_Contr_Combi = %d (%d)\n", index_contr, n_combi);
 
 	// initialize arrays on device
-	double *dev_xa, *dev_ya, *dev_za;
-	double *dev_xb, *dev_yb, *dev_zb;
-	int    *dev_la, *dev_ma, *dev_na;
-	int    *dev_lb, *dev_mb, *dev_nb;
-	double *dev_aexps, *dev_acoef;
-	double *dev_bexps, *dev_bcoef;
+	float *dev_xa, *dev_ya, *dev_za;
+	float *dev_xb, *dev_yb, *dev_zb;
+	int   *dev_la, *dev_ma, *dev_na;
+	int   *dev_lb, *dev_mb, *dev_nb;
+	float *dev_aexps, *dev_acoef;
+	float *dev_bexps, *dev_bcoef;
 
 	dev_xa = NULL; dev_ya = NULL; dev_za = NULL;
 	dev_xb = NULL; dev_yb = NULL; dev_zb = NULL;
