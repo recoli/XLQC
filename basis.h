@@ -40,10 +40,10 @@ double calc_ene_nucl(Atom *p_atom);
 
 // parse basis set
 // get number of basis functions
-void parse_basis(Atom *p_atom, Basis *p_basis);
+void parse_basis(Atom *p_atom, Basis *p_basis, int use_5d);
 
 // read the full basis set created by parse_basis
-void read_basis(Atom *p_atom, Basis *p_basis);
+void read_basis(Atom *p_atom, Basis *p_basis, int use_5d);
 
 void print_basis(Basis *p_basis);
 

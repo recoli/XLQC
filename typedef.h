@@ -25,7 +25,7 @@
 #define N_SP  4
 #define N_P   3
 #define N_D   5
-#define N_F  10
+#define N_D_CART   6
 
 // maximal number of DIIS error matrices
 #define MAX_DIIS_DIM 6
@@ -46,24 +46,23 @@
 
 // vector
 typedef struct {
-	double x, y, z;
+    double x, y, z;
 } Vec_R;
 
 // atomic name, position and nuclear charge
 typedef struct {
-	int num;
-	char **name;
-	double **pos;
-	int *nuc_chg;
+    int num;
+    char **name;
+    double **pos;
+    int *nuc_chg;
 } Atom;
 
 // basis set
 typedef struct {
-	int num;
-	double **expon, **coef, **norm;
-	double *xbas, *ybas, *zbas;
-	int *nprims;
-	//int **lmn;
-	int **lx, **ly, **lz;
+    int num;
+    double **expon, **coef, **norm;
+    double *xbas, *ybas, *zbas;
+    int *nprims;
+    int **lx, **ly, **lz;
 } Basis;
 

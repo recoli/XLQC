@@ -60,6 +60,9 @@ void my_cuda_safe(cudaError_t err, std::string word)
 
 int main(int argc, char* argv[])
 {
+    // use spherical harmonic d function
+    const int use_5d = 1;
+
     Atom   *p_atom   = (Atom *)my_malloc(sizeof(Atom) * 1);
     Basis  *p_basis  = (Basis *)my_malloc(sizeof(Basis) * 1);
 
@@ -102,7 +105,7 @@ int main(int argc, char* argv[])
     //====== parse basis.dat ========
 
     // parse basis functions
-    parse_basis(p_atom, p_basis);
+    parse_basis(p_atom, p_basis, use_5d);
 
     fprintf(stdout, "System Nbasis = %d\n", p_basis->num);
 
@@ -124,7 +127,7 @@ int main(int argc, char* argv[])
     p_basis->lz = (int **)my_malloc(sizeof(int *) * p_basis->num);
 
     // read basis set (also calculate normalization factors)
-    read_basis(p_atom, p_basis);
+    read_basis(p_atom, p_basis, use_5d);
 
 #ifdef DEBUG
     print_basis(p_basis);
