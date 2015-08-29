@@ -40,24 +40,6 @@
 
 #include "cuda_rys_sp.h"
 
-void my_cuda_safe(cudaError_t err, std::string word)
-{
-    if(err != cudaSuccess) 
-    {
-        fprintf(stderr, "Error during %s: ", word.c_str());
-
-        // check for error
-        cudaThreadSynchronize();
-        cudaError_t error = cudaGetLastError();
-        if(error != cudaSuccess)
-        {
-            // print the CUDA error message and exit
-            fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(error));
-            exit(-1);
-        }
-    } 
-}
-
 int main(int argc, char* argv[])
 {
     // use spherical harmonic d function
@@ -296,8 +278,8 @@ int main(int argc, char* argv[])
             ++ index_contr;
         }
     }
-    printf("Num_Prim_Combi  = %d (%d)\n", index, count_prim);
-    printf("Num_Contr_Combi = %d (%d)\n", index_contr, n_combi);
+    fprintf(stdout, "Num_Prim_Combi  = %d (%d)\n", index, count_prim);
+    fprintf(stdout, "Num_Contr_Combi = %d (%d)\n", index_contr, n_combi);
 
     // initialize arrays on device
     float *dev_xa, *dev_ya, *dev_za;
@@ -334,7 +316,7 @@ int main(int argc, char* argv[])
     if(dev_xa == NULL || dev_ya == NULL || dev_za == NULL ||
        dev_xb == NULL || dev_yb == NULL || dev_zb == NULL)
     {
-        printf("Error: cannot cudaMalloc for x_basis!\n");
+        fprintf(stderr, "Error: cannot cudaMalloc for x_basis!\n");
         exit(1);
     }
 
@@ -348,7 +330,7 @@ int main(int argc, char* argv[])
     if(dev_la == NULL || dev_ma == NULL || dev_na == NULL ||
        dev_lb == NULL || dev_mb == NULL || dev_nb == NULL)
     {
-        printf("Error: cannot cudaMalloc for l_basis!\n");
+        fprintf(stderr, "Error: cannot cudaMalloc for l_basis!\n");
         exit(1);
     }
 
@@ -360,7 +342,7 @@ int main(int argc, char* argv[])
     if(dev_aexps == NULL || dev_acoef == NULL ||
        dev_bexps == NULL || dev_bcoef == NULL)
     {
-        printf("Error: cannot cudaMalloc for exp_basis!\n");
+        fprintf(stderr, "Error: cannot cudaMalloc for exp_basis!\n");
         exit(1);
     }
 
@@ -371,7 +353,7 @@ int main(int argc, char* argv[])
 
     if(dev_eri == NULL || dev_start_contr == NULL || dev_end_contr == NULL)
     {
-        printf("Error: cannot cudaMalloc for dev_eri!\n");
+        fprintf(stderr, "Error: cannot cudaMalloc for dev_eri!\n");
         exit(1);
     }
 

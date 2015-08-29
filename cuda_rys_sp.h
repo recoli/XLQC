@@ -17,11 +17,16 @@
  of this software, even if advised of the possibility of such damage.
  *****************************************************************************/
 
+#include <string>
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
 #define MAXROOTS 7
+
+void my_cuda_safe(cudaError_t err, std::string word);
+
 __device__ int cuda_fact(int n);
 __device__ int cuda_binomial(int a, int b);
 __device__ void cuda_Roots(int n, float X, float roots[], float weights[]);

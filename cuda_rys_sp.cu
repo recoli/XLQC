@@ -22,7 +22,27 @@
  of this software, even if advised of the possibility of such damage.
  *****************************************************************************/
 
+#include <string>
+
 #include "cuda_rys_sp.h"
+
+void my_cuda_safe(cudaError_t err, std::string word)
+{
+    if(err != cudaSuccess) 
+    {
+        fprintf(stderr, "Error during %s: ", word.c_str());
+
+        // check for error
+        cudaThreadSynchronize();
+        cudaError_t error = cudaGetLastError();
+        if(error != cudaSuccess)
+        {
+            // print the CUDA error message and exit
+            fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(error));
+            exit(-1);
+        }
+    } 
+}
 
 __device__ int cuda_fact(int n){
   if (n <= 1) return 1;
