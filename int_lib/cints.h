@@ -75,7 +75,7 @@ double contr_nuc_attr(int lena,double *aexps,double *acoefs,double *anorms,
                       double xa,double ya,double za,int la,int ma,int na,
                       int lenb,double *bexps,double *bcoefs,double *bnorms,
                       double xb,double yb,double zb,int lb,int mb,int nb,
-                      double qn, double xn, double yn, double zn);
+                      int natoms, int *qn, double **xyzn);
 //=========== end of modification ================
 
 int fact(int n);

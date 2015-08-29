@@ -310,16 +310,18 @@ double contr_nuc_attr(int lena,double *aexps,double *acoefs,double *anorms,
                       double xa,double ya,double za,int la,int ma,int na,
                       int lenb,double *bexps,double *bcoefs,double *bnorms,
                       double xb,double yb,double zb,int lb,int mb,int nb,
-                      double qn, double xn, double yn, double zn)
+                      int natoms, int *qn, double **xyzn)
 {
   double val = 0.0;
-  int i, j;
-  for(i = 0; i < lena; i ++){
-    for(j = 0; j < lenb; j ++){
-      val += acoefs[i] * bcoefs[j] * qn *
-             nuclear_attraction(xa, ya, za, anorms[i], la, ma, na, aexps[i],
-                                xb, yb, zb, bnorms[j], lb, mb, nb, bexps[j],
-                                xn, yn, zn);
+  int i, j, c;
+  for(i = 0; i < lena; ++ i){
+    for(j = 0; j < lenb; ++ j){
+      for(c = 0; c < natoms; ++ c){
+        val += acoefs[i] * bcoefs[j] * qn[c] *
+               nuclear_attraction(xa, ya, za, anorms[i], la, ma, na, aexps[i],
+                                  xb, yb, zb, bnorms[j], lb, mb, nb, bexps[j],
+                                  xyzn[c][0], xyzn[c][1], xyzn[c][2]);
+      }
     }
   }
   return val;

@@ -570,22 +570,18 @@ double calc_int_kinetic(Basis *p_basis, int a, int b)
 
 double calc_int_nuc_attr(Basis *p_basis, int a, int b, Atom *p_atom)
 {
-	double v = 0.0;
+	double v;
 
-	int c;
-	for (c = 0; c < p_atom->num; ++ c)
-	{
-		v += contr_nuc_attr(
-			 p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
-			 p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
-			 p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+	v = contr_nuc_attr(
+		p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
+		p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
+		p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
 
-			 p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
-			 p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
-			 p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2],
+		p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
+		p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
+		p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2],
 
-			 p_atom->nuc_chg[c], p_atom->pos[c][0], p_atom->pos[c][1], p_atom->pos[c][2]);
-	}
+		p_atom->num, p_atom->nuc_chg, p_atom->pos);
 
 	return v;
 }
