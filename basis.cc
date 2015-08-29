@@ -445,8 +445,9 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
             if (fgets(line, MAX_STR_LEN, f_basis_all) != NULL)
             {
                 double dbl_num;
-                sscanf(line, "%s%d%lf", cart_type, &p_basis->nprims[ibasis], &dbl_num);
-                int nprims = p_basis->nprims[ibasis];
+                int    nprims;
+                sscanf(line, "%s%d%lf", cart_type, &nprims, &dbl_num);
+                //p_basis->nprims[ibasis] = nprims;
 
                 if (0 == strcmp(cart_type, "****")) { break; }
 
@@ -463,7 +464,7 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
                 }
 
                 int iprim;
-                for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
+                for (iprim = 0; iprim < nprims; ++ iprim)
                 {
                     if (fgets(line, MAX_STR_LEN, f_basis_all) != NULL)
                     {
@@ -480,10 +481,10 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
                             {
                                 for (ii = 0; ii < N; ++ ii)
                                 {
-                                    if (ii > 0) { p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis]; }
+                                    p_basis->nprims[ibasis + ii] = nprims;
 
-                                    size_t bytes_dbl = sizeof(double) * p_basis->nprims[ibasis];
-                                    size_t bytes_int = sizeof(int)    * p_basis->nprims[ibasis];
+                                    size_t bytes_dbl = sizeof(double) * p_basis->nprims[ibasis + ii];
+                                    size_t bytes_int = sizeof(int)    * p_basis->nprims[ibasis + ii];
 
                                     p_basis->expon[ibasis + ii] = (double *)my_malloc(bytes_dbl);
                                     p_basis->coef[ibasis + ii]  = (double *)my_malloc(bytes_dbl);
@@ -532,11 +533,12 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
                             {
                                 if (0 == iprim)
                                 {
-                                    p_basis->nprims[ibasis + ii] = nprims;
                                     // D 0
                                     if      (2 == ii) { p_basis->nprims[ibasis + ii] = nprims * 3; }
                                     // D+2
                                     else if (4 == ii) { p_basis->nprims[ibasis + ii] = nprims * 2; }
+                                    // D-2, D-1 or D+1
+                                    else              { p_basis->nprims[ibasis + ii] = nprims; }
 
                                     size_t bytes_dbl = sizeof(double) * p_basis->nprims[ibasis + ii];
                                     size_t bytes_int = sizeof(int)    * p_basis->nprims[ibasis + ii];
