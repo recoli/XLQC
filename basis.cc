@@ -429,7 +429,9 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 			if (fgets(line, MAX_STR_LEN, f_basis_all) != NULL)
 			{
 				double dbl_num;
-				sscanf(line, "%s%d%lf", cart_type, &p_basis->nprims[ibasis], &dbl_num);
+				int nprims;
+				sscanf(line, "%s%d%lf", cart_type, &nprims, &dbl_num);
+				p_basis->nprims[ibasis] = nprims;
 
 				if (0 == strcmp(cart_type, "****")) { break; }
 
@@ -443,7 +445,7 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 				else if (0 == strcmp(cart_type, "F"))  { N = N_F;  ptr_lmn = &f_lmn[0];  num_basis = 10; }
 
 				int iprim;
-				for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
+				for (iprim = 0; iprim < nprims; ++ iprim)
 				{
 					if (fgets(line, MAX_STR_LEN, f_basis_all) != NULL)
 					{
@@ -456,17 +458,19 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 						{
 							for (ii = 0; ii < N; ++ ii)
 							{
-								if (ii > 0) { p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis]; }
+								if (ii > 0) { p_basis->nprims[ibasis + ii] = nprims; }
 
-								p_basis->expon[ibasis + ii] = 
-									(double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
-								p_basis->coef[ibasis + ii]  = 
-									(double *)my_malloc(sizeof(double) * p_basis->nprims[ibasis]);
+								p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * nprims);
+								p_basis->coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * nprims);
+
+								p_basis->lx[ibasis + ii] = (int *)my_malloc(sizeof(int) * nprims);
+								p_basis->ly[ibasis + ii] = (int *)my_malloc(sizeof(int) * nprims);
+								p_basis->lz[ibasis + ii] = (int *)my_malloc(sizeof(int) * nprims);
 
 								for (kk = 0; kk < CART_DIM; ++ kk)
 								{
 									p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
-									p_basis->lmn[ibasis + ii][kk] = ptr_lmn[ii * CART_DIM + kk];
+									//p_basis->lmn[ibasis + ii][kk] = ptr_lmn[ii * CART_DIM + kk];
 								}
 							}
 						}
@@ -483,6 +487,10 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 							{
 								p_basis->coef[ibasis + ii][iprim] = coef_1;
 							}
+
+							p_basis->lx[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 0];
+							p_basis->ly[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 1];
+							p_basis->lz[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 2];
 						}
 					}
 				}
@@ -516,7 +524,8 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 		{
 			p_basis->norm[ibasis][iprim] = 
 				norm_factor(p_basis->expon[ibasis][iprim], 
-							p_basis->lmn[ibasis][0], p_basis->lmn[ibasis][1], p_basis->lmn[ibasis][2]);
+							//p_basis->lmn[ibasis][0], p_basis->lmn[ibasis][1], p_basis->lmn[ibasis][2]);
+							p_basis->lx[ibasis][iprim], p_basis->ly[ibasis][iprim], p_basis->lz[ibasis][iprim]);
 		}
 	}
 }
@@ -531,7 +540,8 @@ void print_basis(Basis *p_basis)
 		{
 			printf("%16.8f%16.8f%5d%5d%5d\n", 
 					p_basis->expon[ibasis][iprim], p_basis->coef[ibasis][iprim],
-					p_basis->lmn[ibasis][0], p_basis->lmn[ibasis][1], p_basis->lmn[ibasis][2]);
+					//p_basis->lmn[ibasis][0], p_basis->lmn[ibasis][1], p_basis->lmn[ibasis][2]);
+					p_basis->lx[ibasis][iprim], p_basis->ly[ibasis][iprim], p_basis->lz[ibasis][iprim]);
 		}
 	}
 }
@@ -543,11 +553,13 @@ double calc_int_overlap(Basis *p_basis, int a, int b)
 	s = contr_overlap(
 		p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
 		p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
-		p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+		//p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+		p_basis->lx[a], p_basis->ly[a], p_basis->lz[a],
 
 		p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
 		p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
-		p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2]);
+		//p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2]);
+		p_basis->lx[b], p_basis->ly[b], p_basis->lz[b]);
 
 	return s;
 }
@@ -559,11 +571,13 @@ double calc_int_kinetic(Basis *p_basis, int a, int b)
 	t = contr_kinetic(
 		p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
 		p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
-		p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+		//p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+		p_basis->lx[a], p_basis->ly[a], p_basis->lz[a],
 
 		p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
-		p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], p_basis->lmn[b][0], 
-		p_basis->lmn[b][1], p_basis->lmn[b][2]);
+		p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
+		//p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2]);
+		p_basis->lx[b], p_basis->ly[b], p_basis->lz[b]);
 
 	return t;
 }
@@ -575,17 +589,20 @@ double calc_int_nuc_attr(Basis *p_basis, int a, int b, Atom *p_atom)
 	v = contr_nuc_attr(
 		p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
 		p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
-		p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+		//p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+		p_basis->lx[a], p_basis->ly[a], p_basis->lz[a],
 
 		p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
 		p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
-		p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2],
+		//p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2],
+		p_basis->lx[b], p_basis->ly[b], p_basis->lz[b],
 
 		p_atom->num, p_atom->nuc_chg, p_atom->pos);
 
 	return v;
 }
 
+/*
 double calc_int_eri_hgp(Basis *p_basis, int a, int b, int c, int d)
 {
 	double eri;
@@ -605,6 +622,7 @@ double calc_int_eri_hgp(Basis *p_basis, int a, int b, int c, int d)
 
 	return eri;
 }
+*/
 
 double calc_int_eri_rys(Basis *p_basis, int a, int b, int c, int d)
 {
@@ -613,19 +631,23 @@ double calc_int_eri_rys(Basis *p_basis, int a, int b, int c, int d)
 	eri = rys_contr_coulomb(
 		  p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
 		  p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
-		  p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+		  //p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
+		  p_basis->lx[a], p_basis->ly[a], p_basis->lz[a],
 
 		  p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
 		  p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
-		  p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2],
+		  //p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2],
+		  p_basis->lx[b], p_basis->ly[b], p_basis->lz[b],
 
 		  p_basis->nprims[c], p_basis->expon[c], p_basis->coef[c], p_basis->norm[c], 
 		  p_basis->xbas[c][0], p_basis->xbas[c][1], p_basis->xbas[c][2], 
-		  p_basis->lmn[c][0], p_basis->lmn[c][1], p_basis->lmn[c][2],
+		  //p_basis->lmn[c][0], p_basis->lmn[c][1], p_basis->lmn[c][2],
+		  p_basis->lx[c], p_basis->ly[c], p_basis->lz[c],
 
 		  p_basis->nprims[d], p_basis->expon[d], p_basis->coef[d], p_basis->norm[d],
 		  p_basis->xbas[d][0], p_basis->xbas[d][1], p_basis->xbas[d][2], 
-		  p_basis->lmn[d][0], p_basis->lmn[d][1], p_basis->lmn[d][2]);
+		  //p_basis->lmn[d][0], p_basis->lmn[d][1], p_basis->lmn[d][2]);
+		  p_basis->lx[d], p_basis->ly[d], p_basis->lz[d]);
 
 	return eri;
 }

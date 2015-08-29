@@ -116,13 +116,17 @@ int main(int argc, char* argv[])
 
 	// Cartesian coordinates and l,m,n numbers
 	p_basis->xbas  = (double **)my_malloc(sizeof(double *) * p_basis->num);
-	p_basis->lmn = (int **)my_malloc(sizeof(int *) * p_basis->num);
+	//p_basis->lmn = (int **)my_malloc(sizeof(int *) * p_basis->num);
+
+	p_basis->lx = (int **)my_malloc(sizeof(int *) * p_basis->num);
+	p_basis->ly = (int **)my_malloc(sizeof(int *) * p_basis->num);
+	p_basis->lz = (int **)my_malloc(sizeof(int *) * p_basis->num);
 
 	int ibasis;
 	for (ibasis = 0; ibasis < p_basis->num; ++ ibasis)
 	{
 		p_basis->xbas[ibasis] = (double *)my_malloc(sizeof(double) * CART_DIM);
-		p_basis->lmn[ibasis]  = (int *)my_malloc(sizeof(int) * CART_DIM);
+		//p_basis->lmn[ibasis]  = (int *)my_malloc(sizeof(int) * CART_DIM);
 	}
 
 	// read basis set (also calculate normalization factors)
@@ -214,14 +218,15 @@ int main(int argc, char* argv[])
 	size_t n_CI_bytes = sizeof(float) * n_combi;
 	size_t n_CI_bytes_int = sizeof(int) * n_combi;
 	size_t n_PI_bytes = sizeof(float) * count_prim;
+	size_t n_PI_bytes_int = sizeof(int) * count_prim;
 	size_t n_ERI_bytes = sizeof(double) * n_eri;
 
 	float *h_xa = (float *)my_malloc(n_CI_bytes);
 	float *h_ya = (float *)my_malloc(n_CI_bytes);
 	float *h_za = (float *)my_malloc(n_CI_bytes);
-	int   *h_la = (int   *)my_malloc(n_CI_bytes_int);
-	int   *h_ma = (int   *)my_malloc(n_CI_bytes_int);
-	int   *h_na = (int   *)my_malloc(n_CI_bytes_int);
+	int   *h_la = (int   *)my_malloc(n_PI_bytes_int);
+	int   *h_ma = (int   *)my_malloc(n_PI_bytes_int);
+	int   *h_na = (int   *)my_malloc(n_PI_bytes_int);
 	float *h_aexps = (float *)my_malloc(n_PI_bytes);
 	float *h_acoef = (float *)my_malloc(n_PI_bytes);
 	// note that 'anorm' is absorbed into 'acoef'
@@ -229,9 +234,9 @@ int main(int argc, char* argv[])
 	float *h_xb = (float *)my_malloc(n_CI_bytes);
 	float *h_yb = (float *)my_malloc(n_CI_bytes);
 	float *h_zb = (float *)my_malloc(n_CI_bytes);
-	int   *h_lb = (int   *)my_malloc(n_CI_bytes_int);
-	int   *h_mb = (int   *)my_malloc(n_CI_bytes_int);
-	int   *h_nb = (int   *)my_malloc(n_CI_bytes_int);
+	int   *h_lb = (int   *)my_malloc(n_PI_bytes_int);
+	int   *h_mb = (int   *)my_malloc(n_PI_bytes_int);
+	int   *h_nb = (int   *)my_malloc(n_PI_bytes_int);
 	float *h_bexps = (float *)my_malloc(n_PI_bytes);
 	float *h_bcoef = (float *)my_malloc(n_PI_bytes);
 	// note that 'bnorm' is absorbed into 'bcoef'
@@ -260,17 +265,17 @@ int main(int argc, char* argv[])
 			h_ya[index_contr] = p_basis->xbas[a][1];
 			h_za[index_contr] = p_basis->xbas[a][2];
 
-			h_la[index_contr] = p_basis->lmn[a][0];
-			h_ma[index_contr] = p_basis->lmn[a][1];
-			h_na[index_contr] = p_basis->lmn[a][2];
+			//h_la[index_contr] = p_basis->lmn[a][0];
+			//h_ma[index_contr] = p_basis->lmn[a][1];
+			//h_na[index_contr] = p_basis->lmn[a][2];
         
 			h_xb[index_contr] = p_basis->xbas[b][0];
 			h_yb[index_contr] = p_basis->xbas[b][1];
 			h_zb[index_contr] = p_basis->xbas[b][2];
                             
-			h_lb[index_contr] = p_basis->lmn[b][0];
-			h_mb[index_contr] = p_basis->lmn[b][1];
-			h_nb[index_contr] = p_basis->lmn[b][2];
+			//h_lb[index_contr] = p_basis->lmn[b][0];
+			//h_mb[index_contr] = p_basis->lmn[b][1];
+			//h_nb[index_contr] = p_basis->lmn[b][2];
 
 			int i,j;
 			for (i=0; i<lena; i++)
@@ -284,6 +289,14 @@ int main(int argc, char* argv[])
 					h_bexps[index] = p_basis->expon[b][j];
 					h_bcoef[index] = p_basis->coef[b][j] * p_basis->norm[b][j];
 					// note that 'bnorm' is absorbed into 'bcoef'
+
+					h_la[index] = p_basis->lx[a][i];
+					h_ma[index] = p_basis->ly[a][i];
+					h_na[index] = p_basis->lz[a][i];
+
+					h_lb[index] = p_basis->lx[b][j];
+					h_mb[index] = p_basis->ly[b][j];
+					h_nb[index] = p_basis->lz[b][j];
 
 					++ index;
 				}
@@ -319,7 +332,8 @@ int main(int argc, char* argv[])
 
 	// allocate memories for arrays on device
 	fprintf(stdout, "Mem_on_Device = %zu MB\n",
-			(n_CI_bytes*8 + n_PI_bytes*4 + n_CI_bytes_int*6 + n_ERI_bytes) / 1000000);
+			(n_CI_bytes*6 + n_PI_bytes_int*6 + n_PI_bytes*4 + 
+			 n_CI_bytes_int*2 + n_ERI_bytes) / 1000000);
 
 	cudaMalloc((void**)&dev_xa, n_CI_bytes);
 	cudaMalloc((void**)&dev_ya, n_CI_bytes);
@@ -335,12 +349,12 @@ int main(int argc, char* argv[])
 		exit(1);
 	}
 
-	cudaMalloc((void**)&dev_la, n_CI_bytes_int);
-	cudaMalloc((void**)&dev_ma, n_CI_bytes_int);
-	cudaMalloc((void**)&dev_na, n_CI_bytes_int);
-	cudaMalloc((void**)&dev_lb, n_CI_bytes_int);
-	cudaMalloc((void**)&dev_mb, n_CI_bytes_int);
-	cudaMalloc((void**)&dev_nb, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_la, n_PI_bytes_int);
+	cudaMalloc((void**)&dev_ma, n_PI_bytes_int);
+	cudaMalloc((void**)&dev_na, n_PI_bytes_int);
+	cudaMalloc((void**)&dev_lb, n_PI_bytes_int);
+	cudaMalloc((void**)&dev_mb, n_PI_bytes_int);
+	cudaMalloc((void**)&dev_nb, n_PI_bytes_int);
 
 	if(dev_la == NULL || dev_ma == NULL || dev_na == NULL ||
 	   dev_lb == NULL || dev_mb == NULL || dev_nb == NULL)
@@ -361,8 +375,8 @@ int main(int argc, char* argv[])
 		exit(1);
 	}
 
-	cudaMalloc((void**)&dev_start_contr, n_CI_bytes);
-	cudaMalloc((void**)&dev_end_contr,   n_CI_bytes);
+	cudaMalloc((void**)&dev_start_contr, n_CI_bytes_int);
+	cudaMalloc((void**)&dev_end_contr,   n_CI_bytes_int);
 
 	cudaMalloc((void**)&dev_eri, n_ERI_bytes);
 
@@ -380,12 +394,12 @@ int main(int argc, char* argv[])
 	my_cuda_safe(cudaMemcpy(dev_yb, h_yb, n_CI_bytes, cudaMemcpyHostToDevice),"mem_yb");
 	my_cuda_safe(cudaMemcpy(dev_zb, h_zb, n_CI_bytes, cudaMemcpyHostToDevice),"mem_zb");
 
-	my_cuda_safe(cudaMemcpy(dev_la, h_la, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_la");
-	my_cuda_safe(cudaMemcpy(dev_ma, h_ma, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_ma");
-	my_cuda_safe(cudaMemcpy(dev_na, h_na, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_na");
-	my_cuda_safe(cudaMemcpy(dev_lb, h_lb, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_lb");
-	my_cuda_safe(cudaMemcpy(dev_mb, h_mb, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_mb");
-	my_cuda_safe(cudaMemcpy(dev_nb, h_nb, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_nb");
+	my_cuda_safe(cudaMemcpy(dev_la, h_la, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_la");
+	my_cuda_safe(cudaMemcpy(dev_ma, h_ma, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_ma");
+	my_cuda_safe(cudaMemcpy(dev_na, h_na, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_na");
+	my_cuda_safe(cudaMemcpy(dev_lb, h_lb, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_lb");
+	my_cuda_safe(cudaMemcpy(dev_mb, h_mb, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_mb");
+	my_cuda_safe(cudaMemcpy(dev_nb, h_nb, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_nb");
 
 	my_cuda_safe(cudaMemcpy(dev_aexps, h_aexps, n_PI_bytes, cudaMemcpyHostToDevice),"mem_ae");
 	my_cuda_safe(cudaMemcpy(dev_acoef, h_acoef, n_PI_bytes, cudaMemcpyHostToDevice),"mem_ac");
@@ -661,13 +675,19 @@ int main(int argc, char* argv[])
 		free(p_basis->expon[ibasis]);
 		free(p_basis->coef[ibasis]);
 		free(p_basis->xbas[ibasis]);
-		free(p_basis->lmn[ibasis]);
+		//free(p_basis->lmn[ibasis]);
+		free(p_basis->lx[ibasis]);
+		free(p_basis->ly[ibasis]);
+		free(p_basis->lz[ibasis]);
 		free(p_basis->norm[ibasis]);
 	}
 	free(p_basis->expon);
 	free(p_basis->coef);
 	free(p_basis->xbas);
-	free(p_basis->lmn);
+	//free(p_basis->lmn);
+	free(p_basis->lx);
+	free(p_basis->ly);
+	free(p_basis->lz);
 	free(p_basis->norm);
 
 	free(p_basis->nprims);

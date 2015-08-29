@@ -195,17 +195,17 @@ double kinetic(double alpha1, int l1, int m1, int n1,
 //========== added by Xin Li, 2015-07-13 ==============
 // kinetic energy integral for contracted GTO
 double contr_kinetic(int lena,double *aexps,double *acoefs,double *anorms,
-                     double xa,double ya,double za,int la,int ma,int na,
+                     double xa,double ya,double za,int *la,int *ma,int *na,
                      int lenb,double *bexps,double *bcoefs,double *bnorms,
-                     double xb,double yb,double zb,int lb,int mb,int nb)
+                     double xb,double yb,double zb,int *lb,int *mb,int *nb)
 {
   double val = 0.0;
   int i, j;
   for(i = 0; i < lena; i ++){
     for(j = 0; j < lenb; j ++){
       val += acoefs[i] * bcoefs[j] * anorms[i] * bnorms[j] *
-             kinetic(aexps[i], la, ma, na, xa, ya, za,
-                     bexps[j], lb, mb, nb, xb, yb, zb);
+             kinetic(aexps[i], la[i], ma[i], na[i], xa, ya, za,
+                     bexps[j], lb[j], mb[j], nb[j], xb, yb, zb);
     }
   }
   return val;
@@ -238,17 +238,17 @@ double overlap(double alpha1, int l1, int m1, int n1,
 //============ added by Xin Li, 2015-07-13 ============
 // overlap integral for contracted GTO
 double contr_overlap(int lena,double *aexps,double *acoefs,double *anorms,
-                     double xa,double ya,double za,int la,int ma,int na,
+                     double xa,double ya,double za,int *la,int *ma,int *na,
                      int lenb,double *bexps,double *bcoefs,double *bnorms,
-                     double xb,double yb,double zb,int lb,int mb,int nb)
+                     double xb,double yb,double zb,int *lb,int *mb,int *nb)
 {
   double val = 0.0;
   int i, j;
   for(i = 0; i < lena; i ++){
     for(j = 0; j < lenb; j ++){
       val += acoefs[i] * bcoefs[j] * anorms[i] * bnorms[j] *
-             overlap(aexps[i], la, ma, na, xa, ya, za,
-                     bexps[j], lb, mb, nb, xb, yb, zb);
+             overlap(aexps[i], la[i], ma[i], na[i], xa, ya, za,
+                     bexps[j], lb[j], mb[j], nb[j], xb, yb, zb);
     }
   }
   return val;
@@ -307,9 +307,9 @@ double nuclear_attraction(double x1, double y1, double z1, double norm1,
 // nuclear attraction integral for contracted GTO
 // qn: nuclear charge; xn,yn,zn: nuclear position
 double contr_nuc_attr(int lena,double *aexps,double *acoefs,double *anorms,
-                      double xa,double ya,double za,int la,int ma,int na,
+                      double xa,double ya,double za,int *la,int *ma,int *na,
                       int lenb,double *bexps,double *bcoefs,double *bnorms,
-                      double xb,double yb,double zb,int lb,int mb,int nb,
+                      double xb,double yb,double zb,int *lb,int *mb,int *nb,
                       int natoms, int *qn, double **xyzn)
 {
   double val = 0.0;
@@ -318,8 +318,8 @@ double contr_nuc_attr(int lena,double *aexps,double *acoefs,double *anorms,
     for(j = 0; j < lenb; ++ j){
       for(c = 0; c < natoms; ++ c){
         val += acoefs[i] * bcoefs[j] * qn[c] *
-               nuclear_attraction(xa, ya, za, anorms[i], la, ma, na, aexps[i],
-                                  xb, yb, zb, bnorms[j], lb, mb, nb, bexps[j],
+               nuclear_attraction(xa, ya, za, anorms[i], la[i], ma[i], na[i], aexps[i],
+                                  xb, yb, zb, bnorms[j], lb[j], mb[j], nb[j], bexps[j],
                                   xyzn[c][0], xyzn[c][1], xyzn[c][2]);
       }
     }

@@ -63,5 +63,6 @@ typedef struct {
 	double **expon, **coef, **xbas, **norm;
 	int *nprims;
 	int **lmn;
+	int **lx, **ly, **lz;
 } Basis;
 

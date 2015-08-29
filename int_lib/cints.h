@@ -64,17 +64,17 @@ double *A_array(int l1, int l2, double PA, double PB,
 //=========== added by Xin Li, 2015-07-13 =============
 double norm_factor(double alpha1, int l1, int m1, int n1);
 double contr_kinetic(int lena,double *aexps,double *acoefs,double *anorms,
-                     double xa,double ya,double za,int la,int ma,int na,
+                     double xa,double ya,double za,int *la,int *ma,int *na,
                      int lenb,double *bexps,double *bcoefs,double *bnorms,
-                     double xb,double yb,double zb,int lb,int mb,int nb);
+                     double xb,double yb,double zb,int *lb,int *mb,int *nb);
 double contr_overlap(int lena,double *aexps,double *acoefs,double *anorms,
-                     double xa,double ya,double za,int la,int ma,int na,
+                     double xa,double ya,double za,int *la,int *ma,int *na,
                      int lenb,double *bexps,double *bcoefs,double *bnorms,
-                     double xb,double yb,double zb,int lb,int mb,int nb);
+                     double xb,double yb,double zb,int *lb,int *mb,int *nb);
 double contr_nuc_attr(int lena,double *aexps,double *acoefs,double *anorms,
-                      double xa,double ya,double za,int la,int ma,int na,
+                      double xa,double ya,double za,int *la,int *ma,int *na,
                       int lenb,double *bexps,double *bcoefs,double *bnorms,
-                      double xb,double yb,double zb,int lb,int mb,int nb,
+                      double xb,double yb,double zb,int *lb,int *mb,int *nb,
                       int natoms, int *qn, double **xyzn);
 //=========== end of modification ================
 

@@ -1506,19 +1506,21 @@ __global__ void cuda_rys_eri_2d(float *xa,float *ya,float *za,
 
     float xai[3] = {xa[idx_i],ya[idx_i],za[idx_i]};
     float xbi[3] = {xb[idx_i],yb[idx_i],zb[idx_i]};
-    float lai[3] = {la[idx_i],ma[idx_i],na[idx_i]};
-    float lbi[3] = {lb[idx_i],mb[idx_i],nb[idx_i]};
 
     float xak[3] = {xa[idx_k],ya[idx_k],za[idx_k]};
     float xbk[3] = {xb[idx_k],yb[idx_k],zb[idx_k]};
-    float lak[3] = {la[idx_k],ma[idx_k],na[idx_k]};
-    float lbk[3] = {lb[idx_k],mb[idx_k],nb[idx_k]};
 
     double this_eri = 0.0;
     for (int i = start_i; i <= end_i; ++ i)
     {
+        float lai[3] = {la[i],ma[i],na[i]};
+        float lbi[3] = {lb[i],mb[i],nb[i]};
+
         for (int k = start_k; k <= end_k; ++ k)
         {
+            float lak[3] = {la[k],ma[k],na[k]};
+            float lbk[3] = {lb[k],mb[k],nb[k]};
+
             this_eri += cuda_rys_coulomb_repulsion(
                         xai[0],xai[1],xai[2],acoef[i],
                         lai[0],lai[1],lai[2],aexps[i],

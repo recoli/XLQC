@@ -15,13 +15,13 @@
 #define MAXROOTS 7
 
 double rys_contr_coulomb(int lena,double *aexps,double *acoefs,double *anorms,
-                         double xa,double ya,double za,int la,int ma,int na,
+                         double xa,double ya,double za,int *la,int *ma,int *na,
                          int lenb,double *bexps,double *bcoefs,double *bnorms,
-                         double xb,double yb,double zb,int lb,int mb,int nb,
+                         double xb,double yb,double zb,int *lb,int *mb,int *nb,
                          int lenc,double *cexps,double *ccoefs,double *cnorms,
-                         double xc,double yc,double zc,int lc,int mc,int nc,
+                         double xc,double yc,double zc,int *lc,int *mc,int *nc,
                          int lend,double *dexps,double *dcoefs,double *dnorms,
-                         double xd,double yd,double zd,int ld,int md,int nd);
+                         double xd,double yd,double zd,int *ld,int *md,int *nd);
 
 double rys_coulomb_repulsion(double xa,double ya,double za,double norma,
                              int la,int ma,int na,double alphaa,

@@ -38,13 +38,13 @@
 #define MAXROOTS 7
 
 double rys_contr_coulomb(int lena,double *aexps,double *acoefs,double *anorms,
-                         double xa,double ya,double za,int la,int ma,int na,
+                         double xa,double ya,double za,int *la,int *ma,int *na,
                          int lenb,double *bexps,double *bcoefs,double *bnorms,
-                         double xb,double yb,double zb,int lb,int mb,int nb,
+                         double xb,double yb,double zb,int *lb,int *mb,int *nb,
                          int lenc,double *cexps,double *ccoefs,double *cnorms,
-                         double xc,double yc,double zc,int lc,int mc,int nc,
+                         double xc,double yc,double zc,int *lc,int *mc,int *nc,
                          int lend,double *dexps,double *dcoefs,double *dnorms,
-                         double xd,double yd,double zd,int ld,int md,int nd)
+                         double xd,double yd,double zd,int *ld,int *md,int *nd)
 {
   double val = 0.;
   int i,j,k,l;
@@ -53,10 +53,10 @@ double rys_contr_coulomb(int lena,double *aexps,double *acoefs,double *anorms,
       for (k=0; k<lenc; k++){
         for (l=0; l<lend; l++){
           val += acoefs[i]*bcoefs[j]*ccoefs[k]*dcoefs[l]
-            *rys_coulomb_repulsion(xa,ya,za,anorms[i],la,ma,na,aexps[i],
-                                   xb,yb,zb,bnorms[j],lb,mb,nb,bexps[j],
-                                   xc,yc,zc,cnorms[k],lc,mc,nc,cexps[k],
-                                   xd,yd,zd,dnorms[l],ld,md,nd,dexps[l]);
+            *rys_coulomb_repulsion(xa,ya,za,anorms[i],la[i],ma[i],na[i],aexps[i],
+                                   xb,yb,zb,bnorms[j],lb[j],mb[j],nb[j],bexps[j],
+                                   xc,yc,zc,cnorms[k],lc[k],mc[k],nc[k],cexps[k],
+                                   xd,yd,zd,dnorms[l],ld[l],md[l],nd[l],dexps[l]);
         }
       }
     }
