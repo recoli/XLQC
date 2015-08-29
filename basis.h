@@ -22,6 +22,8 @@ void* my_malloc(size_t bytes);
 
 void* my_malloc_2(size_t bytes, std::string word);
 
+void* my_realloc(void* ptr, size_t bytes);
+
 // combination index
 int ij2intindex(int i, int j);
 

@@ -62,6 +62,18 @@ void* my_malloc_2(size_t bytes, std::string word)
     }
 }
 
+void* my_realloc(void* ptr, size_t bytes) 
+{
+    void* new_ptr = NULL;
+	new_ptr = realloc(ptr, bytes);
+    if(NULL == new_ptr) 
+    {
+        fprintf(stderr, "Error: could not re-allocate memory!\n");
+        exit(1);
+    } 
+    return new_ptr;
+}
+
 //=============================
 // combination index
 //=============================
@@ -289,7 +301,8 @@ void parse_basis(Atom *p_atom, Basis *p_basis)
                 if      (0 == strcmp(cart_type, "S"))  { elem_n_basis[ielem] += 1; }
                 else if (0 == strcmp(cart_type, "SP")) { elem_n_basis[ielem] += 4; }
                 else if (0 == strcmp(cart_type, "P"))  { elem_n_basis[ielem] += 3; }
-                else if (0 == strcmp(cart_type, "D"))  { elem_n_basis[ielem] += 6; }
+                //else if (0 == strcmp(cart_type, "D"))  { elem_n_basis[ielem] += 6; }
+                else if (0 == strcmp(cart_type, "D"))  { elem_n_basis[ielem] += 5; }
                 // for now disable F function which is not implemented in Rys quadrature
                 //else if (0 == strcmp(cart_type, "F"))  { elem_n_basis[ielem] += 10; }
                 else 
@@ -410,7 +423,8 @@ void read_basis(Atom *p_atom, Basis *p_basis)
     int s_lmn[N_S * CART_DIM]   = {0,0,0};
     int sp_lmn[N_SP * CART_DIM] = {0,0,0,  1,0,0,  0,1,0,  0,0,1};
     int p_lmn[N_P * CART_DIM]   = {1,0,0,  0,1,0,  0,0,1};
-    int d_lmn[N_D * CART_DIM]   = {2,0,0,  1,1,0,  1,0,1,  0,2,0,  0,1,1,  0,0,2};
+    					          // XY, YZ, ZZ, XZ, (YY,) XX
+    int d_lmn[N_D * CART_DIM]   = {1,1,0,  0,1,1,  0,0,2,  1,0,1,  2,0,0};
     int f_lmn[N_F * CART_DIM]   = {3,0,0,  2,1,0,  2,0,1,  1,2,0,  1,1,1,  1,0,2,
                                    0,3,0,  0,2,1,  0,1,2,  0,0,3};
 
@@ -429,9 +443,8 @@ void read_basis(Atom *p_atom, Basis *p_basis)
             if (fgets(line, MAX_STR_LEN, f_basis_all) != NULL)
             {
                 double dbl_num;
-                int nprims;
-                sscanf(line, "%s%d%lf", cart_type, &nprims, &dbl_num);
-                p_basis->nprims[ibasis] = nprims;
+                sscanf(line, "%s%d%lf", cart_type, &p_basis->nprims[ibasis], &dbl_num);
+				int nprims = p_basis->nprims[ibasis];
 
                 if (0 == strcmp(cart_type, "****")) { break; }
 
@@ -441,11 +454,11 @@ void read_basis(Atom *p_atom, Basis *p_basis)
                 if      (0 == strcmp(cart_type, "S"))  { N = N_S;  ptr_lmn = &s_lmn[0];  num_basis =  1; }
                 else if (0 == strcmp(cart_type, "SP")) { N = N_SP; ptr_lmn = &sp_lmn[0]; num_basis =  4; }
                 else if (0 == strcmp(cart_type, "P"))  { N = N_P;  ptr_lmn = &p_lmn[0];  num_basis =  3; }
-                else if (0 == strcmp(cart_type, "D"))  { N = N_D;  ptr_lmn = &d_lmn[0];  num_basis =  6; }
+                else if (0 == strcmp(cart_type, "D"))  { N = N_D;  ptr_lmn = &d_lmn[0];  num_basis =  5; }
                 else if (0 == strcmp(cart_type, "F"))  { N = N_F;  ptr_lmn = &f_lmn[0];  num_basis = 10; }
 
                 int iprim;
-                for (iprim = 0; iprim < nprims; ++ iprim)
+                for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
                 {
                     if (fgets(line, MAX_STR_LEN, f_basis_all) != NULL)
                     {
@@ -454,42 +467,136 @@ void read_basis(Atom *p_atom, Basis *p_basis)
                         sscanf(line, "%lf%lf%lf", &expon_1, &coef_1, &coef_2);
 
                         int ii;
-                        if (0 == iprim)
-                        {
-                            for (ii = 0; ii < N; ++ ii)
-                            {
-                                if (ii > 0) { p_basis->nprims[ibasis + ii] = nprims; }
+						// s, sp or p functions
+						if (N < N_D)
+						{
+							if (0 == iprim)
+							{
+								for (ii = 0; ii < N; ++ ii)
+								{
+									if (ii > 0) { p_basis->nprims[ibasis + ii] = p_basis->nprims[ibasis]; }
 
-                                p_basis->expon[ibasis + ii] = (double *)my_malloc(sizeof(double) * nprims);
-                                p_basis->coef[ibasis + ii]  = (double *)my_malloc(sizeof(double) * nprims);
+									size_t bytes_dbl = sizeof(double) * p_basis->nprims[ibasis];
+									size_t bytes_int = sizeof(int)    * p_basis->nprims[ibasis];
 
-                                p_basis->lx[ibasis + ii] = (int *)my_malloc(sizeof(int) * nprims);
-                                p_basis->ly[ibasis + ii] = (int *)my_malloc(sizeof(int) * nprims);
-                                p_basis->lz[ibasis + ii] = (int *)my_malloc(sizeof(int) * nprims);
+									p_basis->expon[ibasis + ii] = (double *)my_malloc(bytes_dbl);
+									p_basis->coef[ibasis + ii]  = (double *)my_malloc(bytes_dbl);
 
-                                p_basis->xbas[ibasis + ii] = p_atom->pos[iatom][0];
-                                p_basis->ybas[ibasis + ii] = p_atom->pos[iatom][1];
-                                p_basis->zbas[ibasis + ii] = p_atom->pos[iatom][2];
-                            }
-                        }
+									p_basis->lx[ibasis + ii] = (int *)my_malloc(bytes_int);
+									p_basis->ly[ibasis + ii] = (int *)my_malloc(bytes_int);
+									p_basis->lz[ibasis + ii] = (int *)my_malloc(bytes_int);
 
-                        for (ii = 0; ii < N; ++ ii)
-                        {
-                            p_basis->expon[ibasis + ii][iprim] = expon_1;
+									p_basis->xbas[ibasis + ii] = p_atom->pos[iatom][0];
+									p_basis->ybas[ibasis + ii] = p_atom->pos[iatom][1];
+									p_basis->zbas[ibasis + ii] = p_atom->pos[iatom][2];
+								}
+							}
 
-                            if (0 == strcmp(cart_type, "SP") && ii > 0) 
-                            {
-                                p_basis->coef[ibasis + ii][iprim] = coef_2;
-                            }
-                            else
-                            {
-                                p_basis->coef[ibasis + ii][iprim] = coef_1;
-                            }
+							for (ii = 0; ii < N; ++ ii)
+							{
+								p_basis->expon[ibasis + ii][iprim] = expon_1;
 
-                            p_basis->lx[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 0];
-                            p_basis->ly[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 1];
-                            p_basis->lz[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 2];
-                        }
+								if (0 == strcmp(cart_type, "SP") && ii > 0) 
+								{
+									p_basis->coef[ibasis + ii][iprim] = coef_2;
+								}
+								else
+								{
+									p_basis->coef[ibasis + ii][iprim] = coef_1;
+								}
+
+								p_basis->lx[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 0];
+								p_basis->ly[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 1];
+								p_basis->lz[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 2];
+							}
+						}
+
+						// Cartesian d function
+    					// XY, YZ, ZZ, XZ, (YY,) XX
+						// Spheircal harmonic d function
+						// D-2 = XY
+						// D-1 = YZ
+						// D 0 = -0.5*XX-0.5*YY+ZZ
+						// D+1 = XZ
+						// D+2 = sqrt(3)/2*(XX-YY)
+						else if (N_D == N)
+						{
+							num_basis = 5;
+							for (ii = 0; ii < num_basis; ++ ii)
+							{
+								if (0 == iprim)
+								{
+									p_basis->nprims[ibasis + ii] = nprims;
+									if      (2 == ii) { p_basis->nprims[ibasis + ii] = nprims * 3; }
+									else if (4 == ii) { p_basis->nprims[ibasis + ii] = nprims * 2; }
+
+									size_t bytes_dbl = sizeof(double) * p_basis->nprims[ibasis + ii];
+									size_t bytes_int = sizeof(int)    * p_basis->nprims[ibasis + ii];
+
+									p_basis->expon[ibasis + ii] = (double *)my_malloc(bytes_dbl);
+									p_basis->coef[ibasis + ii]  = (double *)my_malloc(bytes_dbl);
+
+									p_basis->lx[ibasis + ii] = (int *)my_malloc(bytes_int);
+									p_basis->ly[ibasis + ii] = (int *)my_malloc(bytes_int);
+									p_basis->lz[ibasis + ii] = (int *)my_malloc(bytes_int);
+
+									p_basis->xbas[ibasis + ii] = p_atom->pos[iatom][0];
+									p_basis->ybas[ibasis + ii] = p_atom->pos[iatom][1];
+									p_basis->zbas[ibasis + ii] = p_atom->pos[iatom][2];
+								}
+
+								p_basis->expon[ibasis + ii][iprim] = expon_1;
+								p_basis->coef[ibasis + ii][iprim] = coef_1;
+
+								p_basis->lx[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 0];
+								p_basis->ly[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 1];
+								p_basis->lz[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 2];
+
+								// D 0 = -0.5*XX-0.5*YY+ZZ
+								if (2 == ii)
+								{
+									p_basis->expon[ibasis + ii][iprim] = expon_1;
+									p_basis->coef[ibasis + ii][iprim]  = -0.5 * coef_1;
+                                    
+									p_basis->lx[ibasis + ii][iprim] = 2;
+									p_basis->ly[ibasis + ii][iprim] = 0;
+									p_basis->lz[ibasis + ii][iprim] = 0;
+
+									p_basis->expon[ibasis + ii][iprim + 1] = expon_1;
+									p_basis->coef[ibasis + ii][iprim + 1]  = -0.5 * coef_1;
+                                    
+									p_basis->lx[ibasis + ii][iprim + 1] = 0;
+									p_basis->ly[ibasis + ii][iprim + 1] = 2;
+									p_basis->lz[ibasis + ii][iprim + 1] = 0;
+
+									p_basis->expon[ibasis + ii][iprim + 2] = expon_1;
+									p_basis->coef[ibasis + ii][iprim + 2]  = coef_1;
+                                    
+									p_basis->lx[ibasis + ii][iprim + 2] = 0;
+									p_basis->ly[ibasis + ii][iprim + 2] = 0;
+									p_basis->lz[ibasis + ii][iprim + 2] = 2;
+								}
+								// D+2 = sqrt(3)/2*(XX-YY)
+								else if (4 == ii)
+								{
+									double prefac = sqrt(3.0) / 2.0;
+
+									p_basis->expon[ibasis + ii][iprim] = expon_1;
+									p_basis->coef[ibasis + ii][iprim]  = prefac * coef_1;
+                                    
+									p_basis->lx[ibasis + ii][iprim] = 2;
+									p_basis->ly[ibasis + ii][iprim] = 0;
+									p_basis->lz[ibasis + ii][iprim] = 0;
+
+									p_basis->expon[ibasis + ii][iprim + 1] = expon_1;
+									p_basis->coef[ibasis + ii][iprim + 1]  = -prefac * coef_1;
+                                    
+									p_basis->lx[ibasis + ii][iprim + 1] = 0;
+									p_basis->ly[ibasis + ii][iprim + 1] = 2;
+									p_basis->lz[ibasis + ii][iprim + 1] = 0;
+								}
+							}
+						}
                     }
                 }
 
@@ -535,10 +642,14 @@ void print_basis(Basis *p_basis)
         int iprim;
         for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
         {
-            printf("%16.8f%16.8f%16.8f %16.8f%16.8f %5d%5d%5d\n", 
-                    p_basis->xbas[ibasis], p_basis->ybas[ibasis], p_basis->ybas[ibasis],
+			/*
+            printf("%16.8f%16.8f%16.8f ", 
+                    p_basis->xbas[ibasis], p_basis->ybas[ibasis], p_basis->ybas[ibasis]);
+					*/
+            printf("%16.8f%16.8f %5d%5d%5d   ibf_%-3d  ipm_%-3d  npm=%d\n", 
                     p_basis->expon[ibasis][iprim], p_basis->coef[ibasis][iprim],
-                    p_basis->lx[ibasis][iprim], p_basis->ly[ibasis][iprim], p_basis->lz[ibasis][iprim]);
+                    p_basis->lx[ibasis][iprim], p_basis->ly[ibasis][iprim], p_basis->lz[ibasis][iprim],
+					ibasis, iprim, p_basis->nprims[ibasis]);
         }
     }
 }

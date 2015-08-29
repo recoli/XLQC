@@ -24,7 +24,7 @@
 #define N_S   1
 #define N_SP  4
 #define N_P   3
-#define N_D   6
+#define N_D   5
 #define N_F  10
 
 // maximal number of DIIS error matrices
