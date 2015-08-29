@@ -14,26 +14,16 @@
  license. Please see the file LICENSE that is part of this
  distribution. 
 
- This file has been modified by Xin Li on 2015-07-13.
- 1. Removed "static" from all functions
- 2. Added functions: norm_factor, contr_kinetic, contr_overlap, 
- 					 and contr_nuc_attr
+ ====== This file has been modified by Xin Li on 2015-08-28 ======
+
  **********************************************************************/
 
-
-//#include "Python.h"
-#include "cints.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-/*======== commented by Xin Li, 2015-07-13 ===============
-// Not required for MSVC since the code is included below
-#if defined(_WIN32) && !defined(_MSC_VER)
-double lgamma(double x);
-#endif
-======== end of comment ===============*/
+#include "cints.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -44,55 +34,21 @@ double lgamma(double x);
 #define FPMIN 1.0e-30
 #define SMALL 1.0e-11
 
-/*======== commented by Xin Li, 2015-07-13 ===============
-// lgamma not included in ANSI standard and so not available in MSVC
-#if defined(_MSC_VER)
-double lgamma(double z) {
-    double c[7];
-    double x,y ,tmp, ser, v;
-    int i;
-
-    if (z<=0) return 0;
-
-    c[0]=2.5066282746310005;
-    c[1]=76.18009172947146;
-    c[2]=-86.50532032941677;
-    c[3]=24.01409824083091;
-    c[4]=-1.231739572450155;
-    c[5]=0.1208650973866179e-2;
-    c[6]=-0.5395239384953e-5;
-   
-    x   = z;
-    y   = x;
-    tmp = x+5.5;
-    tmp = (x+0.5)*log(tmp)-tmp;
-    ser = 1.000000000190015;
-    for (i=1; i<7; i++) {
-        y   += 1.0;
-        ser += c[i]/y;
-        }
-    v = tmp+log(c[0]*ser/x);
-    return v;
-    }
-#endif
-======== end of comment ===============*/
-
 //==== added by Xin Li, 2015-07-13 ====
 // Normalization factor
 // see ref eq. 2.2
 double norm_factor(double alpha1, int l1, int m1, int n1)
 {
-	double numerator = pow(2.0, (double)(2*(l1+m1+n1)) + 1.5) *
-						pow(alpha1, (double)(l1+m1+n1) + 1.5);
-	double denominator = (double)(fact2(2*l1-1) * 
-								  fact2(2*m1-1) * 
-								  fact2(2*n1-1)) * pow(M_PI, 1.5);
-	return sqrt(numerator / denominator);
+    double numerator = pow(2.0, 1.5 + 2*(l1+m1+n1)) *
+                       pow(alpha1, 1.5 + (l1+m1+n1));
+    double denominator = pow(M_PI, 1.5) * (fact2(2*l1-1) * 
+                         fact2(2*m1-1) * fact2(2*n1-1));
+    return sqrt(numerator / denominator);
 }
 //======== end of modification =========
 
 double fB(int i, int l1, int l2, double px, double ax, double bx, 
-		 int r, double g){
+          int r, double g){
   return binomial_prefactor(i,l1,l2,px-ax,px-bx)*Bfunc(i,r,g);
 }
 
@@ -101,17 +57,17 @@ double Bfunc(int i, int r, double g){
 }
 
 double contr_coulomb(int lena, double *aexps, double *acoefs,
-			    double *anorms, double xa, double ya, double za,
-			    int la, int ma, int na, 
-			    int lenb, double *bexps, double *bcoefs,
-			    double *bnorms, double xb, double yb, double zb,
-			    int lb, int mb, int nb, 
-			    int lenc, double *cexps, double *ccoefs,
-			    double *cnorms, double xc, double yc, double zc,
-			    int lc, int mc, int nc, 
-			    int lend, double *dexps, double *dcoefs,
-			    double *dnorms, double xd, double yd, double zd,
-			    int ld, int md, int nd){
+                     double *anorms, double xa, double ya, double za,
+                     int la, int ma, int na, 
+                     int lenb, double *bexps, double *bcoefs,
+                     double *bnorms, double xb, double yb, double zb,
+                     int lb, int mb, int nb, 
+                     int lenc, double *cexps, double *ccoefs,
+                     double *cnorms, double xc, double yc, double zc,
+                     int lc, int mc, int nc, 
+                     int lend, double *dexps, double *dcoefs,
+                     double *dnorms, double xd, double yd, double zd,
+                     int ld, int md, int nd){
 
   int i,j,k,l;
   double Jij = 0.,incr=0.;
@@ -119,25 +75,25 @@ double contr_coulomb(int lena, double *aexps, double *acoefs,
   for (i=0; i<lena; i++)
     for (j=0; j<lenb; j++)
       for (k=0; k<lenc; k++)
-	for (l=0; l<lend; l++){
-	  incr = coulomb_repulsion(xa,ya,za,anorms[i],la,ma,na,aexps[i],
-			      xb,yb,zb,bnorms[j],lb,mb,nb,bexps[j],
-			      xc,yc,zc,cnorms[k],lc,mc,nc,cexps[k],
-			      xd,yd,zd,dnorms[l],ld,md,nd,dexps[l]);
-	  
-	  Jij += acoefs[i]*bcoefs[j]*ccoefs[k]*dcoefs[l]*incr;
-	}
+        for (l=0; l<lend; l++){
+          incr = coulomb_repulsion(xa,ya,za,anorms[i],la,ma,na,aexps[i],
+                                   xb,yb,zb,bnorms[j],lb,mb,nb,bexps[j],
+                                   xc,yc,zc,cnorms[k],lc,mc,nc,cexps[k],
+                                   xd,yd,zd,dnorms[l],ld,md,nd,dexps[l]);
+          
+          Jij += acoefs[i]*bcoefs[j]*ccoefs[k]*dcoefs[l]*incr;
+        }
   return Jij;
 }
 
 double coulomb_repulsion(double xa, double ya, double za, double norma,
-				int la, int ma, int na, double alphaa,
-				double xb, double yb, double zb, double normb,
-				int lb, int mb, int nb, double alphab,
-				double xc, double yc, double zc, double normc,
-				int lc, int mc, int nc, double alphac,
-				double xd, double yd, double zd, double normd,
-				int ld, int md, int nd, double alphad){
+                         int la, int ma, int na, double alphaa,
+                         double xb, double yb, double zb, double normb,
+                         int lb, int mb, int nb, double alphab,
+                         double xc, double yc, double zc, double normc,
+                         int lc, int mc, int nc, double alphac,
+                         double xd, double yd, double zd, double normd,
+                         int ld, int md, int nd, double alphad){
 
   double rab2, rcd2,rpq2,xp,yp,zp,xq,yq,zq,gamma1,gamma2,delta,sum;
   double *Bx, *By, *Bz;
@@ -164,20 +120,20 @@ double coulomb_repulsion(double xa, double ya, double za, double norma,
   for (I=0; I<la+lb+lc+ld+1;I++)
     for (J=0; J<ma+mb+mc+md+1;J++)
       for (K=0; K<na+nb+nc+nd+1;K++)
-	sum += Bx[I]*By[J]*Bz[K]*Fgamma(I+J+K,0.25*rpq2/delta);
+        sum += Bx[I]*By[J]*Bz[K]*Fgamma(I+J+K,0.25*rpq2/delta);
 
   free(Bx);
   free(By);
   free(Bz);  
   
   return 2.*pow(M_PI,2.5)/(gamma1*gamma2*sqrt(gamma1+gamma2))
-    *exp(-alphaa*alphab*rab2/gamma1) 
-    *exp(-alphac*alphad*rcd2/gamma2)*sum*norma*normb*normc*normd;
+           *exp(-alphaa*alphab*rab2/gamma1) 
+           *exp(-alphac*alphad*rcd2/gamma2)*sum*norma*normb*normc*normd;
 }
 
 double *B_array(int l1, int l2, int l3, int l4, double p, double a,
-		double b, double q, double c, double d,
-		double g1, double g2, double delta){
+                double b, double q, double c, double d,
+                double g1, double g2, double delta){
   int Imax,i1,i2,r1,r2,u,I,i;
   double *B;
   Imax = l1+l2+l3+l4+1;
@@ -187,20 +143,20 @@ double *B_array(int l1, int l2, int l3, int l4, double p, double a,
   for (i1=0; i1<l1+l2+1; i1++)
     for (i2=0; i2<l3+l4+1; i2++)
       for (r1=0; r1<i1/2+1; r1++)
-	for (r2=0; r2<i2/2+1; r2++)
-	  for (u=0; u<(i1+i2)/2-r1-r2+1; u++){
-	    I = i1+i2-2*(r1+r2)-u;
-	    B[I] = B[I] + B_term(i1,i2,r1,r2,u,l1,l2,l3,l4,
-				 p,a,b,q,c,d,g1,g2,delta);
-	  }
+        for (r2=0; r2<i2/2+1; r2++)
+          for (u=0; u<(i1+i2)/2-r1-r2+1; u++){
+            I = i1+i2-2*(r1+r2)-u;
+            B[I] = B[I] + B_term(i1,i2,r1,r2,u,l1,l2,l3,l4,
+                                 p,a,b,q,c,d,g1,g2,delta);
+          }
 
   return B;
 }
 
 double B_term(int i1, int i2, int r1, int r2, int u, int l1, int l2,
-	      int l3, int l4, double Px, double Ax, double Bx,
-	      double Qx, double Cx, double Dx, double gamma1,
-	      double gamma2, double delta){
+              int l3, int l4, double Px, double Ax, double Bx,
+              double Qx, double Cx, double Dx, double gamma1,
+              double gamma2, double delta){
   /* THO eq. 2.22 */
   return fB(i1,l1,l2,Px,Ax,Bx,r1,gamma1)
     *pow(-1,i2)*fB(i2,l3,l4,Qx,Cx,Dx,r2,gamma2)
@@ -211,27 +167,27 @@ double B_term(int i1, int i2, int r1, int r2, int u, int l1, int l2,
 
 
 double kinetic(double alpha1, int l1, int m1, int n1,
-	       double xa, double ya, double za,
-	       double alpha2, int l2, int m2, int n2,
-	       double xb, double yb, double zb){
+               double xa, double ya, double za,
+               double alpha2, int l2, int m2, int n2,
+               double xb, double yb, double zb){
 
   double term0,term1,term2;
   term0 = alpha2*(2*(l2+m2+n2)+3)*
     overlap(alpha1,l1,m1,n1,xa,ya,za,
-		   alpha2,l2,m2,n2,xb,yb,zb);
+            alpha2,l2,m2,n2,xb,yb,zb);
   term1 = -2*pow(alpha2,2)*
     (overlap(alpha1,l1,m1,n1,xa,ya,za,
-		    alpha2,l2+2,m2,n2,xb,yb,zb)
+             alpha2,l2+2,m2,n2,xb,yb,zb)
      + overlap(alpha1,l1,m1,n1,xa,ya,za,
-		      alpha2,l2,m2+2,n2,xb,yb,zb)
+               alpha2,l2,m2+2,n2,xb,yb,zb)
      + overlap(alpha1,l1,m1,n1,xa,ya,za,
-		      alpha2,l2,m2,n2+2,xb,yb,zb));
+               alpha2,l2,m2,n2+2,xb,yb,zb));
   term2 = -0.5*(l2*(l2-1)*overlap(alpha1,l1,m1,n1,xa,ya,za,
-					 alpha2,l2-2,m2,n2,xb,yb,zb) +
-		m2*(m2-1)*overlap(alpha1,l1,m1,n1,xa,ya,za,
-					 alpha2,l2,m2-2,n2,xb,yb,zb) +
-		n2*(n2-1)*overlap(alpha1,l1,m1,n1,xa,ya,za,
-					 alpha2,l2,m2,n2-2,xb,yb,zb));
+                                  alpha2,l2-2,m2,n2,xb,yb,zb) +
+                m2*(m2-1)*overlap(alpha1,l1,m1,n1,xa,ya,za,
+                                  alpha2,l2,m2-2,n2,xb,yb,zb) +
+                n2*(n2-1)*overlap(alpha1,l1,m1,n1,xa,ya,za,
+                                  alpha2,l2,m2,n2-2,xb,yb,zb));
   return term0+term1+term2;
 }
 
@@ -239,30 +195,28 @@ double kinetic(double alpha1, int l1, int m1, int n1,
 //========== added by Xin Li, 2015-07-13 ==============
 // kinetic energy integral for contracted GTO
 double contr_kinetic(int lena,double *aexps,double *acoefs,double *anorms,
-					 double xa,double ya,double za,int la,int ma,int na,
-					 int lenb,double *bexps,double *bcoefs,double *bnorms,
-					 double xb,double yb,double zb,int lb,int mb,int nb)
+                     double xa,double ya,double za,int la,int ma,int na,
+                     int lenb,double *bexps,double *bcoefs,double *bnorms,
+                     double xb,double yb,double zb,int lb,int mb,int nb)
 {
-	double val = 0.0;
-	int i, j;
-	for(i = 0; i < lena; i ++)
-	{
-		for(j = 0; j < lenb; j ++)
-		{
-			val += acoefs[i] * bcoefs[j] * anorms[i] * bnorms[j] *
-					kinetic(aexps[i], la, ma, na, xa, ya, za,
-							bexps[j], lb, mb, nb, xb, yb, zb);
-		}
-	}
-	return val;
+  double val = 0.0;
+  int i, j;
+  for(i = 0; i < lena; i ++){
+    for(j = 0; j < lenb; j ++){
+      val += acoefs[i] * bcoefs[j] * anorms[i] * bnorms[j] *
+             kinetic(aexps[i], la, ma, na, xa, ya, za,
+                     bexps[j], lb, mb, nb, xb, yb, zb);
+    }
+  }
+  return val;
 }
 //========== end of modification ==============
 
 
 double overlap(double alpha1, int l1, int m1, int n1,
-		      double xa, double ya, double za,
-		      double alpha2, int l2, int m2, int n2,
-		      double xb, double yb, double zb){
+               double xa, double ya, double za,
+               double alpha2, int l2, int m2, int n2,
+               double xb, double yb, double zb){
   /*Taken from THO eq. 2.12*/
   double rab2,gamma,xp,yp,zp,pre,wx,wy,wz;
 
@@ -284,28 +238,26 @@ double overlap(double alpha1, int l1, int m1, int n1,
 //============ added by Xin Li, 2015-07-13 ============
 // overlap integral for contracted GTO
 double contr_overlap(int lena,double *aexps,double *acoefs,double *anorms,
-					 double xa,double ya,double za,int la,int ma,int na,
-					 int lenb,double *bexps,double *bcoefs,double *bnorms,
-					 double xb,double yb,double zb,int lb,int mb,int nb)
+                     double xa,double ya,double za,int la,int ma,int na,
+                     int lenb,double *bexps,double *bcoefs,double *bnorms,
+                     double xb,double yb,double zb,int lb,int mb,int nb)
 {
-	double val = 0.0;
-	int i, j;
-	for(i = 0; i < lena; i ++)
-	{
-		for(j = 0; j < lenb; j ++)
-		{
-			val += acoefs[i] * bcoefs[j] * anorms[i] * bnorms[j] *
-					overlap(aexps[i], la, ma, na, xa, ya, za,
-							bexps[j], lb, mb, nb, xb, yb, zb);
-		}
-	}
-	return val;
+  double val = 0.0;
+  int i, j;
+  for(i = 0; i < lena; i ++){
+    for(j = 0; j < lenb; j ++){
+      val += acoefs[i] * bcoefs[j] * anorms[i] * bnorms[j] *
+             overlap(aexps[i], la, ma, na, xa, ya, za,
+                     bexps[j], lb, mb, nb, xb, yb, zb);
+    }
+  }
+  return val;
 }
 //============ end of modification ============
 
 
 double overlap_1D(int l1, int l2, double PAx,
-			 double PBx, double gamma){
+                  double PBx, double gamma){
   /*Taken from THO eq. 2.12*/
   int i;
   double sum;
@@ -317,10 +269,10 @@ double overlap_1D(int l1, int l2, double PAx,
 }
     
 double nuclear_attraction(double x1, double y1, double z1, double norm1,
-				 int l1, int m1, int n1, double alpha1,
-				 double x2, double y2, double z2, double norm2,
-				 int l2, int m2, int n2, double alpha2,
-				 double x3, double y3, double z3){
+                          int l1, int m1, int n1, double alpha1,
+                          double x2, double y2, double z2, double norm2,
+                          int l2, int m2, int n2, double alpha2,
+                          double x3, double y3, double z3){
   int I,J,K;
   double gamma,xp,yp,zp,sum,rab2,rcp2;
   double *Ax,*Ay,*Az;
@@ -342,13 +294,12 @@ double nuclear_attraction(double x1, double y1, double z1, double norm1,
   for (I=0; I<l1+l2+1; I++)
     for (J=0; J<m1+m2+1; J++)
       for (K=0; K<n1+n2+1; K++)
-	sum += Ax[I]*Ay[J]*Az[K]*Fgamma(I+J+K,rcp2*gamma);
+        sum += Ax[I]*Ay[J]*Az[K]*Fgamma(I+J+K,rcp2*gamma);
 
   free(Ax);
   free(Ay);
   free(Az);
-  return -norm1*norm2*
-    2*M_PI/gamma*exp(-alpha1*alpha2*rab2/gamma)*sum;
+  return -norm1*norm2*2*M_PI/gamma*exp(-alpha1*alpha2*rab2/gamma)*sum;
 }
 
 
@@ -356,30 +307,28 @@ double nuclear_attraction(double x1, double y1, double z1, double norm1,
 // nuclear attraction integral for contracted GTO
 // qn: nuclear charge; xn,yn,zn: nuclear position
 double contr_nuc_attr(int lena,double *aexps,double *acoefs,double *anorms,
-					  double xa,double ya,double za,int la,int ma,int na,
-					  int lenb,double *bexps,double *bcoefs,double *bnorms,
-					  double xb,double yb,double zb,int lb,int mb,int nb,
-					  double qn, double xn, double yn, double zn)
+                      double xa,double ya,double za,int la,int ma,int na,
+                      int lenb,double *bexps,double *bcoefs,double *bnorms,
+                      double xb,double yb,double zb,int lb,int mb,int nb,
+                      double qn, double xn, double yn, double zn)
 {
-	double val = 0.0;
-	int i, j;
-	for(i = 0; i < lena; i ++)
-	{
-		for(j = 0; j < lenb; j ++)
-		{
-			val += acoefs[i] * bcoefs[j] * qn *
-					nuclear_attraction(xa, ya, za, anorms[i], la, ma, na, aexps[i],
-				 					   xb, yb, zb, bnorms[j], lb, mb, nb, bexps[j],
-				 					   xn, yn, zn);
-		}
-	}
-	return val;
+  double val = 0.0;
+  int i, j;
+  for(i = 0; i < lena; i ++){
+    for(j = 0; j < lenb; j ++){
+      val += acoefs[i] * bcoefs[j] * qn *
+             nuclear_attraction(xa, ya, za, anorms[i], la, ma, na, aexps[i],
+                                xb, yb, zb, bnorms[j], lb, mb, nb, bexps[j],
+                                xn, yn, zn);
+    }
+  }
+  return val;
 }
 //============== end of modification =============
 
     
 double A_term(int i, int r, int u, int l1, int l2,
-		     double PAx, double PBx, double CPx, double gamma){
+              double PAx, double PBx, double CPx, double gamma){
   /* THO eq. 2.18 */
   return pow(-1,i)*binomial_prefactor(i,l1,l2,PAx,PBx)*
     pow(-1,u)*fact(i)*pow(CPx,i-2*r-2*u)*
@@ -387,7 +336,7 @@ double A_term(int i, int r, int u, int l1, int l2,
 }
 
 double *A_array(int l1, int l2, double PA, double PB,
-		double CP, double g){
+                double CP, double g){
   /* THO eq. 2.18 and 3.1 */
   int Imax,i,r,u,I;
   double *A;
@@ -398,8 +347,8 @@ double *A_array(int l1, int l2, double PA, double PB,
   for (i=0; i<Imax; i++)
     for (r=0; r<floor(i/2)+1;r++)
       for (u=0; u<floor((i-2*r)/2.)+1; u++){
-	I = i-2*r-u;
-	A[I] += A_term(i,r,u,l1,l2,PA,PB,CP,g);
+        I = i-2*r-u;
+        A[I] += A_term(i,r,u,l1,l2,PA,PB,CP,g);
       }
   return A;
 }
@@ -416,11 +365,11 @@ int fact2(int n){ /* double factorial function = 1*3*5*...*n */
 }
 
 double dist2(double x1, double y1, double z1,
-		    double x2, double y2, double z2){
+             double x2, double y2, double z2){
   return (x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)+(z1-z2)*(z1-z2);
 }
 double dist(double x1, double y1, double z1,
-		   double x2, double y2, double z2){
+            double x2, double y2, double z2){
   return sqrt(dist2(x1,y1,z1,x2,y2,z2));
 }
 
@@ -474,8 +423,8 @@ void gser(double *gamser, double a, double x, double *gln){
       del *= x/ap;
       sum += del;
       if (fabs(del) < fabs(sum)*EPS) {
-	*gamser=sum*exp(-x+a*log(x)-(*gln));
-	return;
+        *gamser=sum*exp(-x+a*log(x)-(*gln));
+        return;
       }
     }
     printf("a too large, ITMAX too small in routine gser");
@@ -522,46 +471,24 @@ int ijkl2intindex(int i, int j, int k, int l){
   return ij*(ij+1)/2+kl;
 }
 
-int ijkl2intindex_old(int i, int j, int k, int l){
-  int tmp,ij,kl;
-  if (i<j){
-    tmp = i;
-    i = j;
-    j = tmp;
-  }
-  if (k<l){
-    tmp = k;
-    k = l;
-    l = tmp;
-  }
-  ij = i*(i+1)/2+j;
-  kl = k*(k+1)/2+l;
-  if (ij<kl){
-    tmp = ij;
-    ij = kl;
-    kl = tmp;
-  }
-  return ij*(ij+1)/2+kl;
-}
-
 int fact_ratio2(int a, int b){ return fact(a)/fact(b)/fact(a-2*b); }
 
 double product_center_1D(double alphaa, double xa, 
-			 double alphab, double xb){
+                         double alphab, double xb){
   return (alphaa*xa+alphab*xb)/(alphaa+alphab);
 }
 
 double three_center_1D(double xi, int ai, double alphai,
-			      double xj, int aj, double alphaj,
-			      double xk, int ak, double alphak){
+                       double xj, int aj, double alphaj,
+                       double xk, int ak, double alphak){
 
   double gamma, dx, px, xpi,xpj,xpk,intgl;
   int q,r,s,n;
   
   gamma = alphai+alphaj+alphak;
   dx = exp(-alphai*alphaj*pow(xi-xj,2)/gamma) *
-    exp(-alphai*alphak*pow(xi-xk,2)/gamma) *
-    exp(-alphaj*alphak*pow(xj-xk,2)/gamma);
+       exp(-alphai*alphak*pow(xi-xk,2)/gamma) *
+       exp(-alphaj*alphak*pow(xj-xk,2)/gamma);
   px = (alphai*xi+alphaj*xj+alphak*xk)/gamma;
     
   xpi = px-xi;
@@ -571,16 +498,15 @@ double three_center_1D(double xi, int ai, double alphai,
   for (q=0; q<ai+1; q++){
     for (r=0; r<aj+1; r++){
       for (s=0; s<ak+1; s++){
-	n = (q+r+s)/2;
-	if ((q+r+s)%2 == 0) {
-	  intgl += binomial(ai,q)*binomial(aj,r)*binomial(ak,s)*
-	    pow(xpi,ai-q)*pow(xpj,aj-r)*pow(xpk,ak-s)*
-	    fact2(2*n-1)/pow(2*gamma,n)*sqrt(M_PI/gamma);
-	}
+        n = (q+r+s)/2;
+        if ((q+r+s)%2 == 0) {
+          intgl += binomial(ai,q)*binomial(aj,r)*binomial(ak,s)*
+            pow(xpi,ai-q)*pow(xpj,aj-r)*pow(xpk,ak-s)*
+            fact2(2*n-1)/pow(2*gamma,n)*sqrt(M_PI/gamma);
+        }
       }
     }
   }
   return dx*intgl;
 }
 
-/*======== python wrappers removed by Xin Li, 2015-07-13 ==========*/

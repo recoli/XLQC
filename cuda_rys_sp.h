@@ -30,33 +30,21 @@ __device__ void cuda_Root4(float X, float roots[], float weights[]);
 __device__ void cuda_Root5(float X, float roots[], float weights[]);
 __device__ void cuda_Root6(int n,float X, float roots[], float weights[]);
 __device__ float cuda_Int1d(int i, int j,int k, int l,
-				float xi, float xj, float xk, float xl,
-	     		float alpha_ij_A, float alpha_kl_B, float sqrt_AB,
-			    float A, float B, float Px, float Qx,
-			    float inv_t1, float B00, float B1, float B1p, 
-				float G[][MAXROOTS]);
+                            float xi, float xj, float xk, float xl,
+                            float alpha_ij_A, float alpha_kl_B, float sqrt_AB,
+                            float A, float B, float Px, float Qx,
+                            float inv_t1, float B00, float B1, float B1p, 
+                            float G[][MAXROOTS]);
 __device__ float cuda_rys_coulomb_repulsion(float xa,float ya,float za,float norma,
-				int la,int ma,int na,float alphaa,
-				float xb,float yb,float zb,float normb,
-				int lb,int mb,int nb,float alphab,
-				float xc,float yc,float zc,float normc,
-				int lc,int mc,int nc,float alphac,
-				float xd,float yd,float zd,float normd,
-				int ld,int md,int nd,float alphad);
-/*
-__global__ void cuda_rys_eri(float *xa,float *ya,float *za,float *norma,
-				int *la,int *ma,int *na,float *alphaa,float *acoef,
-				float *xb,float *yb,float *zb,float *normb,
-				int *lb,int *mb,int *nb,float *alphab,float *bcoef,
-				float *xc,float *yc,float *zc,float *normc,
-				int *lc,int *mc,int *nc,float *alphac,float *ccoef,
-				float *xd,float *yd,float *zd,float *normd,
-				int *ld,int *md,int *nd,float *alphad,float *dcoef,
-				int n_contr_ints, int *start_contr, int *end_contr, float *eri);
-*/
-
+                                            int la,int ma,int na,float alphaa,
+                                            float xb,float yb,float zb,float normb,
+                                            int lb,int mb,int nb,float alphab,
+                                            float xc,float yc,float zc,float normc,
+                                            int lc,int mc,int nc,float alphac,
+                                            float xd,float yd,float zd,float normd,
+                                            int ld,int md,int nd,float alphad);
 __global__ void cuda_rys_eri_2d(float *xa,float *ya,float *za,
-				int *la,int *ma,int *na,float *aexps,float *acoef,
-				float *xb,float *yb,float *zb,
-				int *lb,int *mb,int *nb,float *bexps,float *bcoef,
-				int n_combi, int *start_contr, int *end_contr, double *eri);
+                                int *la,int *ma,int *na,float *aexps,float *acoef,
+                                float *xb,float *yb,float *zb,
+                                int *lb,int *mb,int *nb,float *bexps,float *bcoef,
+                                int n_combi, int *start_contr, int *end_contr, double *eri);
