@@ -60,9 +60,10 @@ typedef struct {
 // basis set
 typedef struct {
 	int num;
-	double **expon, **coef, **xbas, **norm;
+	double **expon, **coef, **norm;
+	double *xbas, *ybas, *zbas;
 	int *nprims;
-	int **lmn;
+	//int **lmn;
 	int **lx, **ly, **lz;
 } Basis;
 

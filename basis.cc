@@ -469,9 +469,13 @@ void read_basis(Atom *p_atom, Basis *p_basis)
 
 								for (kk = 0; kk < CART_DIM; ++ kk)
 								{
-									p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
+									//p_basis->xbas[ibasis + ii][kk] = p_atom->pos[iatom][kk];
 									//p_basis->lmn[ibasis + ii][kk] = ptr_lmn[ii * CART_DIM + kk];
+									//printf("xbas[%d][%d] = %f\n", ibasis + ii, kk, p_basis->xbas[ibasis + ii][kk]);
 								}
+								p_basis->xbas[ibasis + ii] = p_atom->pos[iatom][0];
+								p_basis->ybas[ibasis + ii] = p_atom->pos[iatom][1];
+								p_basis->zbas[ibasis + ii] = p_atom->pos[iatom][2];
 							}
 						}
 
@@ -538,7 +542,8 @@ void print_basis(Basis *p_basis)
 		int iprim;
 		for (iprim = 0; iprim < p_basis->nprims[ibasis]; ++ iprim)
 		{
-			printf("%16.8f%16.8f%5d%5d%5d\n", 
+			printf("%16.8f%16.8f%16.8f %16.8f%16.8f %5d%5d%5d\n", 
+					p_basis->xbas[ibasis], p_basis->ybas[ibasis], p_basis->ybas[ibasis],
 					p_basis->expon[ibasis][iprim], p_basis->coef[ibasis][iprim],
 					//p_basis->lmn[ibasis][0], p_basis->lmn[ibasis][1], p_basis->lmn[ibasis][2]);
 					p_basis->lx[ibasis][iprim], p_basis->ly[ibasis][iprim], p_basis->lz[ibasis][iprim]);
@@ -552,12 +557,12 @@ double calc_int_overlap(Basis *p_basis, int a, int b)
 
 	s = contr_overlap(
 		p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
-		p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
+		p_basis->xbas[a], p_basis->ybas[a], p_basis->zbas[a], 
 		//p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
 		p_basis->lx[a], p_basis->ly[a], p_basis->lz[a],
 
 		p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
-		p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
+		p_basis->xbas[b], p_basis->ybas[b], p_basis->zbas[b], 
 		//p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2]);
 		p_basis->lx[b], p_basis->ly[b], p_basis->lz[b]);
 
@@ -570,12 +575,12 @@ double calc_int_kinetic(Basis *p_basis, int a, int b)
 
 	t = contr_kinetic(
 		p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
-		p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
+		p_basis->xbas[a], p_basis->ybas[a], p_basis->zbas[a], 
 		//p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
 		p_basis->lx[a], p_basis->ly[a], p_basis->lz[a],
 
 		p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
-		p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
+		p_basis->xbas[b], p_basis->ybas[b], p_basis->zbas[b], 
 		//p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2]);
 		p_basis->lx[b], p_basis->ly[b], p_basis->lz[b]);
 
@@ -588,12 +593,12 @@ double calc_int_nuc_attr(Basis *p_basis, int a, int b, Atom *p_atom)
 
 	v = contr_nuc_attr(
 		p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
-		p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
+		p_basis->xbas[a], p_basis->ybas[a], p_basis->zbas[a], 
 		//p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
 		p_basis->lx[a], p_basis->ly[a], p_basis->lz[a],
 
 		p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
-		p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
+		p_basis->xbas[b], p_basis->ybas[b], p_basis->zbas[b], 
 		//p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2],
 		p_basis->lx[b], p_basis->ly[b], p_basis->lz[b],
 
@@ -630,22 +635,22 @@ double calc_int_eri_rys(Basis *p_basis, int a, int b, int c, int d)
 
 	eri = rys_contr_coulomb(
 		  p_basis->nprims[a], p_basis->expon[a], p_basis->coef[a], p_basis->norm[a], 
-		  p_basis->xbas[a][0], p_basis->xbas[a][1], p_basis->xbas[a][2], 
+		  p_basis->xbas[a], p_basis->ybas[a], p_basis->zbas[a], 
 		  //p_basis->lmn[a][0], p_basis->lmn[a][1], p_basis->lmn[a][2],
 		  p_basis->lx[a], p_basis->ly[a], p_basis->lz[a],
 
 		  p_basis->nprims[b], p_basis->expon[b], p_basis->coef[b], p_basis->norm[b], 
-		  p_basis->xbas[b][0], p_basis->xbas[b][1], p_basis->xbas[b][2], 
+		  p_basis->xbas[b], p_basis->ybas[b], p_basis->zbas[b], 
 		  //p_basis->lmn[b][0], p_basis->lmn[b][1], p_basis->lmn[b][2],
 		  p_basis->lx[b], p_basis->ly[b], p_basis->lz[b],
 
 		  p_basis->nprims[c], p_basis->expon[c], p_basis->coef[c], p_basis->norm[c], 
-		  p_basis->xbas[c][0], p_basis->xbas[c][1], p_basis->xbas[c][2], 
+		  p_basis->xbas[c], p_basis->ybas[c], p_basis->zbas[c], 
 		  //p_basis->lmn[c][0], p_basis->lmn[c][1], p_basis->lmn[c][2],
 		  p_basis->lx[c], p_basis->ly[c], p_basis->lz[c],
 
 		  p_basis->nprims[d], p_basis->expon[d], p_basis->coef[d], p_basis->norm[d],
-		  p_basis->xbas[d][0], p_basis->xbas[d][1], p_basis->xbas[d][2], 
+		  p_basis->xbas[d], p_basis->ybas[d], p_basis->zbas[d], 
 		  //p_basis->lmn[d][0], p_basis->lmn[d][1], p_basis->lmn[d][2]);
 		  p_basis->lx[d], p_basis->ly[d], p_basis->lz[d]);
 

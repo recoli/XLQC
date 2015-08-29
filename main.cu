@@ -115,8 +115,11 @@ int main(int argc, char* argv[])
 	p_basis->nprims = (int *)my_malloc(sizeof(int) * p_basis->num);
 
 	// Cartesian coordinates and l,m,n numbers
-	p_basis->xbas  = (double **)my_malloc(sizeof(double *) * p_basis->num);
+	//p_basis->xbas  = (double **)my_malloc(sizeof(double *) * p_basis->num);
 	//p_basis->lmn = (int **)my_malloc(sizeof(int *) * p_basis->num);
+	p_basis->xbas  = (double *)my_malloc(sizeof(double) * p_basis->num);
+	p_basis->ybas  = (double *)my_malloc(sizeof(double) * p_basis->num);
+	p_basis->zbas  = (double *)my_malloc(sizeof(double) * p_basis->num);
 
 	p_basis->lx = (int **)my_malloc(sizeof(int *) * p_basis->num);
 	p_basis->ly = (int **)my_malloc(sizeof(int *) * p_basis->num);
@@ -125,12 +128,13 @@ int main(int argc, char* argv[])
 	int ibasis;
 	for (ibasis = 0; ibasis < p_basis->num; ++ ibasis)
 	{
-		p_basis->xbas[ibasis] = (double *)my_malloc(sizeof(double) * CART_DIM);
+		//p_basis->xbas[ibasis] = (double *)my_malloc(sizeof(double) * CART_DIM);
 		//p_basis->lmn[ibasis]  = (int *)my_malloc(sizeof(int) * CART_DIM);
 	}
 
 	// read basis set (also calculate normalization factors)
 	read_basis(p_atom, p_basis);
+	//exit(1);
 
 #ifdef DEBUG
 	print_basis(p_basis);
@@ -156,7 +160,9 @@ int main(int argc, char* argv[])
 		for (b = 0; b <= a; ++ b)
 		{
 			// overlap
+	//printf("xbas[0][0]=%f\n", p_basis->xbas[0][0]);
 			double s = calc_int_overlap(p_basis, a, b);
+	//exit(1);
 
 			// kinetic energy
 			double t = calc_int_kinetic(p_basis, a, b);
@@ -261,17 +267,17 @@ int main(int argc, char* argv[])
 
 			h_start_contr[index_contr] = index;
 
-			h_xa[index_contr] = p_basis->xbas[a][0];
-			h_ya[index_contr] = p_basis->xbas[a][1];
-			h_za[index_contr] = p_basis->xbas[a][2];
+			h_xa[index_contr] = p_basis->xbas[a];
+			h_ya[index_contr] = p_basis->ybas[a];
+			h_za[index_contr] = p_basis->zbas[a];
 
 			//h_la[index_contr] = p_basis->lmn[a][0];
 			//h_ma[index_contr] = p_basis->lmn[a][1];
 			//h_na[index_contr] = p_basis->lmn[a][2];
         
-			h_xb[index_contr] = p_basis->xbas[b][0];
-			h_yb[index_contr] = p_basis->xbas[b][1];
-			h_zb[index_contr] = p_basis->xbas[b][2];
+			h_xb[index_contr] = p_basis->xbas[b];
+			h_yb[index_contr] = p_basis->ybas[b];
+			h_zb[index_contr] = p_basis->zbas[b];
                             
 			//h_lb[index_contr] = p_basis->lmn[b][0];
 			//h_mb[index_contr] = p_basis->lmn[b][1];
@@ -674,7 +680,7 @@ int main(int argc, char* argv[])
 	{
 		free(p_basis->expon[ibasis]);
 		free(p_basis->coef[ibasis]);
-		free(p_basis->xbas[ibasis]);
+		//free(p_basis->xbas[ibasis]);
 		//free(p_basis->lmn[ibasis]);
 		free(p_basis->lx[ibasis]);
 		free(p_basis->ly[ibasis]);
@@ -684,6 +690,8 @@ int main(int argc, char* argv[])
 	free(p_basis->expon);
 	free(p_basis->coef);
 	free(p_basis->xbas);
+	free(p_basis->ybas);
+	free(p_basis->zbas);
 	//free(p_basis->lmn);
 	free(p_basis->lx);
 	free(p_basis->ly);
