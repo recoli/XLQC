@@ -1479,10 +1479,10 @@ __device__ double cuda_rys_coulomb_repulsion_dp(double xa,double ya,double za,do
 }
 
 
-__global__ void cuda_rys_eri_2d_dp(double *xa,double *ya,double *za,
-                                   int *la,int *ma,int *na,float *aexps,float *acoef,
-                                   double *xb,double *yb,double *zb,
-                                   int *lb,int *mb,int *nb,float *bexps,float *bcoef,
+__global__ void cuda_rys_eri_2d_dp(double *xa, double *ya, double *za, 
+                                   int *la, int *ma, int *na, double *aexps, double *acoef, 
+                                   double *xb, double *yb, double *zb, 
+                                   int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
                                    int n_combi, int *start_contr, int *end_contr, double *eri)
 {
     // do the usual computation separately in each dimension:
@@ -1509,21 +1509,29 @@ __global__ void cuda_rys_eri_2d_dp(double *xa,double *ya,double *za,
     {
         int lai[3] = {la[i],ma[i],na[i]};
         int lbi[3] = {lb[i],mb[i],nb[i]};
+        double coef_ai = acoef[i];
+        double exps_ai = aexps[i];
+        double coef_bi = bcoef[i];
+        double exps_bi = bexps[i];
 
         for (int k = start_k; k <= end_k; ++ k)
         {
             int lak[3] = {la[k],ma[k],na[k]};
             int lbk[3] = {lb[k],mb[k],nb[k]};
+            double coef_ak = acoef[k];
+            double exps_ak = aexps[k];
+            double coef_bk = bcoef[k];
+            double exps_bk = bexps[k];
 
             this_eri += cuda_rys_coulomb_repulsion_dp(
-                        xai[0],xai[1],xai[2],(double)acoef[i],
-                        lai[0],lai[1],lai[2],(double)aexps[i],
-                        xbi[0],xbi[1],xbi[2],(double)bcoef[i],
-                        lbi[0],lbi[1],lbi[2],(double)bexps[i],
-                        xak[0],xak[1],xak[2],(double)acoef[k],
-                        lak[0],lak[1],lak[2],(double)aexps[k],
-                        xbk[0],xbk[1],xbk[2],(double)bcoef[k],
-                        lbk[0],lbk[1],lbk[2],(double)bexps[k]);
+                        xai[0],xai[1],xai[2],coef_ai,
+                        lai[0],lai[1],lai[2],exps_ai,
+                        xbi[0],xbi[1],xbi[2],coef_bi,
+                        lbi[0],lbi[1],lbi[2],exps_bi,
+                        xak[0],xak[1],xak[2],coef_ak,
+                        lak[0],lak[1],lak[2],exps_ak,
+                        xbk[0],xbk[1],xbk[2],coef_bk,
+                        lbk[0],lbk[1],lbk[2],exps_bk);
         }
     }
     eri[index] = this_eri;

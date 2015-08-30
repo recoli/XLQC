@@ -217,11 +217,11 @@ int main(int argc, char* argv[])
     }
 
     // allocate memory for arrays on host
-    size_t n_CI_bytes = sizeof(double) * n_combi;
-    size_t n_CI_bytes_int = sizeof(int) * n_combi;
-    size_t n_PI_bytes = sizeof(float) * count_prim;
-    size_t n_PI_bytes_int = sizeof(int) * count_prim;
-    size_t n_ERI_bytes = sizeof(double) * n_eri;
+    size_t n_CI_bytes     = sizeof(double) * n_combi;
+    size_t n_CI_bytes_int = sizeof(int)    * n_combi;
+    size_t n_PI_bytes     = sizeof(double) * count_prim;
+    size_t n_PI_bytes_int = sizeof(int)    * count_prim;
+    size_t n_ERI_bytes    = sizeof(double) * n_eri;
 
     double *h_xa = (double *)my_malloc(n_CI_bytes);
     double *h_ya = (double *)my_malloc(n_CI_bytes);
@@ -237,11 +237,11 @@ int main(int argc, char* argv[])
     int *h_mb = (int *)my_malloc(n_PI_bytes_int);
     int *h_nb = (int *)my_malloc(n_PI_bytes_int);
 
-    float *h_aexps = (float *)my_malloc(n_PI_bytes);
-    float *h_acoef = (float *)my_malloc(n_PI_bytes);
+    double *h_aexps = (double *)my_malloc(n_PI_bytes);
+    double *h_acoef = (double *)my_malloc(n_PI_bytes);
     // note that 'anorm' is absorbed into 'acoef'
-    float *h_bexps = (float *)my_malloc(n_PI_bytes);
-    float *h_bcoef = (float *)my_malloc(n_PI_bytes);
+    double *h_bexps = (double *)my_malloc(n_PI_bytes);
+    double *h_bcoef = (double *)my_malloc(n_PI_bytes);
     // note that 'bnorm' is absorbed into 'bcoef'
 
     int *h_start_contr = (int *)my_malloc(n_CI_bytes_int);
@@ -314,10 +314,10 @@ int main(int argc, char* argv[])
     // initialize arrays on device
     double *dev_xa, *dev_ya, *dev_za;
     double *dev_xb, *dev_yb, *dev_zb;
-    int   *dev_la, *dev_ma, *dev_na;
-    int   *dev_lb, *dev_mb, *dev_nb;
-    float *dev_aexps, *dev_acoef;
-    float *dev_bexps, *dev_bcoef;
+    int    *dev_la, *dev_ma, *dev_na;
+    int    *dev_lb, *dev_mb, *dev_nb;
+    double *dev_aexps, *dev_acoef;
+    double *dev_bexps, *dev_bcoef;
 
     dev_xa = NULL; dev_ya = NULL; dev_za = NULL;
     dev_xb = NULL; dev_yb = NULL; dev_zb = NULL;
