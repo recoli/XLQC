@@ -5,6 +5,11 @@
  Filename:  cuda_rys_sp.h                                                      
  License:   BSD 3-Clause License
 
+ * The implementation of Rys quadrature routines in C is taken from the
+ * PyQuante quantum chemistry program, Copyright (c) 2004, Richard P. Muller.
+ * PyQuante version 1.2 and later is covered by the modified BSD license. 
+ * Please see int_lib/LICENSE.
+ 
  This software is provided by the copyright holders and contributors "as is"
  and any express or implied warranties, including, but not limited to, the
  implied warranties of merchantability and fitness for a particular purpose are
@@ -48,8 +53,8 @@ __device__ float cuda_rys_coulomb_repulsion(float xa,float ya,float za,float nor
                                             int lc,int mc,int nc,float alphac,
                                             float xd,float yd,float zd,float normd,
                                             int ld,int md,int nd,float alphad);
-__global__ void cuda_rys_eri_2d(float *xa,float *ya,float *za,
+__global__ void cuda_rys_eri_2d(double *xa,double *ya,double *za,
                                 int *la,int *ma,int *na,float *aexps,float *acoef,
-                                float *xb,float *yb,float *zb,
+                                double *xb,double *yb,double *zb,
                                 int *lb,int *mb,int *nb,float *bexps,float *bcoef,
                                 int n_combi, int *start_contr, int *end_contr, double *eri);

@@ -41,6 +41,7 @@
 #include "scf.h"
 
 #include "cuda_rys_sp.h"
+#include "cuda_rys_dp.h"
 
 int main(int argc, char* argv[])
 {
@@ -52,8 +53,10 @@ int main(int argc, char* argv[])
     std::string time_txt ("");
     time_total = 0.0;
 
-    // use spherical harmonic d function
+    // use spherical harmonic d function?
     const int use_5d = 1;
+    // use double precision?
+    const int use_dp = 0;
 
     Atom   *p_atom   = (Atom *)my_malloc(sizeof(Atom) * 1);
     Basis  *p_basis  = (Basis *)my_malloc(sizeof(Basis) * 1);
@@ -214,28 +217,29 @@ int main(int argc, char* argv[])
     }
 
     // allocate memory for arrays on host
-    size_t n_CI_bytes = sizeof(float) * n_combi;
+    size_t n_CI_bytes = sizeof(double) * n_combi;
     size_t n_CI_bytes_int = sizeof(int) * n_combi;
     size_t n_PI_bytes = sizeof(float) * count_prim;
     size_t n_PI_bytes_int = sizeof(int) * count_prim;
     size_t n_ERI_bytes = sizeof(double) * n_eri;
 
-    float *h_xa = (float *)my_malloc(n_CI_bytes);
-    float *h_ya = (float *)my_malloc(n_CI_bytes);
-    float *h_za = (float *)my_malloc(n_CI_bytes);
-    int   *h_la = (int   *)my_malloc(n_PI_bytes_int);
-    int   *h_ma = (int   *)my_malloc(n_PI_bytes_int);
-    int   *h_na = (int   *)my_malloc(n_PI_bytes_int);
+    double *h_xa = (double *)my_malloc(n_CI_bytes);
+    double *h_ya = (double *)my_malloc(n_CI_bytes);
+    double *h_za = (double *)my_malloc(n_CI_bytes);
+    double *h_xb = (double *)my_malloc(n_CI_bytes);
+    double *h_yb = (double *)my_malloc(n_CI_bytes);
+    double *h_zb = (double *)my_malloc(n_CI_bytes);
+
+    int *h_la = (int *)my_malloc(n_PI_bytes_int);
+    int *h_ma = (int *)my_malloc(n_PI_bytes_int);
+    int *h_na = (int *)my_malloc(n_PI_bytes_int);
+    int *h_lb = (int *)my_malloc(n_PI_bytes_int);
+    int *h_mb = (int *)my_malloc(n_PI_bytes_int);
+    int *h_nb = (int *)my_malloc(n_PI_bytes_int);
+
     float *h_aexps = (float *)my_malloc(n_PI_bytes);
     float *h_acoef = (float *)my_malloc(n_PI_bytes);
     // note that 'anorm' is absorbed into 'acoef'
-
-    float *h_xb = (float *)my_malloc(n_CI_bytes);
-    float *h_yb = (float *)my_malloc(n_CI_bytes);
-    float *h_zb = (float *)my_malloc(n_CI_bytes);
-    int   *h_lb = (int   *)my_malloc(n_PI_bytes_int);
-    int   *h_mb = (int   *)my_malloc(n_PI_bytes_int);
-    int   *h_nb = (int   *)my_malloc(n_PI_bytes_int);
     float *h_bexps = (float *)my_malloc(n_PI_bytes);
     float *h_bcoef = (float *)my_malloc(n_PI_bytes);
     // note that 'bnorm' is absorbed into 'bcoef'
@@ -308,8 +312,8 @@ int main(int argc, char* argv[])
 
 
     // initialize arrays on device
-    float *dev_xa, *dev_ya, *dev_za;
-    float *dev_xb, *dev_yb, *dev_zb;
+    double *dev_xa, *dev_ya, *dev_za;
+    double *dev_xb, *dev_yb, *dev_zb;
     int   *dev_la, *dev_ma, *dev_na;
     int   *dev_lb, *dev_mb, *dev_nb;
     float *dev_aexps, *dev_acoef;
@@ -424,10 +428,17 @@ int main(int argc, char* argv[])
 
 
     // launch the kernel to calculate two-electron integrals on GPU
-    cuda_rys_eri_2d<<<grid_size, block_size>>>
-        (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
-         dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
-         n_combi, dev_start_contr, dev_end_contr, dev_eri);
+    if (use_dp) {
+        cuda_rys_eri_2d_dp<<<grid_size, block_size>>>
+            (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
+             dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
+             n_combi, dev_start_contr, dev_end_contr, dev_eri);
+    } else {
+        cuda_rys_eri_2d<<<grid_size, block_size>>>
+            (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
+             dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
+             n_combi, dev_start_contr, dev_end_contr, dev_eri);
+    }
 
     t1 = clock();
     time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;

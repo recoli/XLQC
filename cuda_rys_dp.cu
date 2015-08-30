@@ -2,7 +2,7 @@
  This file is part of the XLQC program.                                      
  Copyright (C) 2015 Xin Li <lixin.reco@gmail.com>                            
                                                                            
- Filename:  cuda_rys_sp.cu                                                      
+ Filename:  cuda_rys_dp.cu                                                      
  License:   BSD 3-Clause License
 
  * The implementation of Rys quadrature routines in C is taken from the
@@ -25,51 +25,25 @@
 #include <string>
 
 #include "cuda_rys_sp.h"
+#include "cuda_rys_dp.h"
 
-void my_cuda_safe(cudaError_t err, std::string word)
-{
-    if(err != cudaSuccess) 
-    {
-        fprintf(stderr, "Error during %s: ", word.c_str());
-
-        // check for error
-        cudaThreadSynchronize();
-        cudaError_t error = cudaGetLastError();
-        if(error != cudaSuccess)
-        {
-            // print the CUDA error message and exit
-            fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(error));
-            exit(-1);
-        }
-    } 
-}
-
-__device__ int cuda_fact(int n){
-  if (n <= 1) return 1;
-  return n*cuda_fact(n-1);
-}
-
-__device__ int cuda_binomial(int a, int b){
-  return cuda_fact(a)/(cuda_fact(b)*cuda_fact(a-b));
-}
-
-__device__ void cuda_Roots(int n, float X, float roots[], float weights[]){
+__device__ void cuda_Roots_dp(int n, double X, double roots[], double weights[]){
   if (n <= 3)
-    cuda_Root123(n,X, roots,weights);
+    cuda_Root123_dp(n,X, roots,weights);
   else if (n==4) 
-    cuda_Root4(X, roots,weights);
+    cuda_Root4_dp(X, roots,weights);
   else if (n==5)
-    cuda_Root5(X, roots,weights);
+    cuda_Root5_dp(X, roots,weights);
   else
-    cuda_Root6(n,X, roots,weights);
+    cuda_Root6_dp(n,X, roots,weights);
   return;
 }
 
-__device__ void cuda_Root123(int n, float X, float roots[], float weights[]){
+__device__ void cuda_Root123_dp(int n, double X, double roots[], double weights[]){
 
-  float R12, PIE4, R22, W22, R13, R23, W23, R33, W33;
-  float RT1=0,RT2=0,RT3=0,WW1=0,WW2=0,WW3=0;
-  float F1,F2,E,T1,T2,T3,A1,A2,Y;
+  double R12, PIE4, R22, W22, R13, R23, W23, R33, W33;
+  double RT1=0,RT2=0,RT3=0,WW1=0,WW2=0,WW3=0;
+  double F1,F2,E,T1,T2,T3,A1,A2,Y;
 
   R12 = 2.75255128608411E-01;
   PIE4 = 7.85398163397448E-01;
@@ -522,10 +496,10 @@ __device__ void cuda_Root123(int n, float X, float roots[], float weights[]){
   return;
 }
 
-__device__ void cuda_Root4(float X, float roots[], float weights[]){
-  float R14,PIE4,R24,W24,R34,W34,R44,W44;
-  float RT1=0,RT2=0,RT3=0,RT4=0,WW1=0,WW2=0,WW3=0,WW4=0;
-  float Y,E;
+__device__ void cuda_Root4_dp(double X, double roots[], double weights[]){
+  double R14,PIE4,R24,W24,R34,W34,R44,W44;
+  double RT1=0,RT2=0,RT3=0,RT4=0,WW1=0,WW2=0,WW3=0,WW4=0;
+  double Y,E;
   
   R14 = 1.45303521503316E-01;
   PIE4 = 7.85398163397448E-01;
@@ -888,11 +862,11 @@ __device__ void cuda_Root4(float X, float roots[], float weights[]){
   return;
 }
 
-__device__ void cuda_Root5(float X, float roots[], float weights[]){
-  float R15,PIE4,R25,W25,R35,W35,R45,W45,R55,W55;
-  float RT1=0,RT2=0,RT3=0,RT4=0,RT5=0,
+__device__ void cuda_Root5_dp(double X, double roots[], double weights[]){
+  double R15,PIE4,R25,W25,R35,W35,R45,W45,R55,W55;
+  double RT1=0,RT2=0,RT3=0,RT4=0,RT5=0,
     WW1=0,WW2=0,WW3=0,WW4=0,WW5=0;
-  float Y,E=0,XXX;
+  double Y,E=0,XXX;
 
   R15 = 1.17581320211778E-01;
   PIE4 = 7.85398163397448E-01;
@@ -1393,28 +1367,28 @@ __device__ void cuda_Root5(float X, float roots[], float weights[]){
   return;
 }
 
-__device__ void cuda_Root6(int n,float X, float roots[], float weights[]){
+__device__ void cuda_Root6_dp(int n,double X, double roots[], double weights[]){
   // Root6 not implemented yet
   return;
 }
 
-__device__ float cuda_Int1d(int i, int j, int k, int l,
-                            float xi, float xj, float xk, float xl,
-                            float alpha_ij_A, float alpha_kl_B, float sqrt_AB,
-                            float A, float B, float Px, float Qx,
-                            float inv_t1, float B00, float B1, float B1p, 
-                            float G[][MAXROOTS])
+__device__ double cuda_Int1d_dp(int i, int j, int k, int l,
+                                double xi, double xj, double xk, double xl,
+                                double alpha_ij_A, double alpha_kl_B, double sqrt_AB,
+                                double A, double B, double Px, double Qx,
+                                double inv_t1, double B00, double B1, double B1p, 
+                                double G[][MAXROOTS])
 {
   // Form G(n,m)=I(n,0,m,0) intermediate values for a Rys polynomial 
   int n = i+j;
   int m = k+l;
 
-  float xij = xi-xj;
-  float xkl = xk-xl;
+  double xij = xi-xj;
+  double xkl = xk-xl;
 
   // RecurFactorsGamess
-  float C  = (Px-xi) * inv_t1 + (B*(Qx-xi)+A*(Px-xi))*B00*2.0;
-  float Cp = (Qx-xk) * inv_t1 + (B*(Qx-xk)+A*(Px-xk))*B00*2.0;
+  double C  = (Px-xi) * inv_t1 + (B*(Qx-xi)+A*(Px-xi))*B00*2.0;
+  double Cp = (Qx-xk) * inv_t1 + (B*(Qx-xk)+A*(Px-xk))*B00*2.0;
 
   // ABD eq 11. 
   G[0][0] = M_PI * exp(-alpha_ij_A*xij*xij -alpha_kl_B*xkl*xkl) / sqrt_AB;
@@ -1434,9 +1408,9 @@ __device__ float cuda_Int1d(int i, int j, int k, int l,
   }
 
   // Compute and output I(i,j,k,l) from I(i+j,0,k+l,0) (G) 
-  float ijkl = 0.0;
+  double ijkl = 0.0;
   for (int m=0; m<l+1; m++){
-    float ijm0 = 0.0;
+    double ijm0 = 0.0;
     for (int n=0; n<j+1; n++) // I(i,j,m,0)<-I(n,0,m,0)  
       ijm0 += cuda_binomial(j,n)*pow(xij,j-n)*G[n+i][m+k];
     ijkl += cuda_binomial(l,m)*pow(xkl,l-m)*ijm0; // I(i,j,k,l)<-I(i,j,m,0) 
@@ -1445,17 +1419,17 @@ __device__ float cuda_Int1d(int i, int j, int k, int l,
   return ijkl;
 }
 
-__device__ float cuda_rys_coulomb_repulsion(float xa,float ya,float za,float norma,
-                                            int la,int ma,int na,float alphaa,
-                                            float xb,float yb,float zb,float normb,
-                                            int lb,int mb,int nb,float alphab,
-                                            float xc,float yc,float zc,float normc,
-                                            int lc,int mc,int nc,float alphac,
-                                            float xd,float yd,float zd,float normd,
-                                            int ld,int md,int nd,float alphad)
+__device__ double cuda_rys_coulomb_repulsion_dp(double xa,double ya,double za,double norma,
+                                                int la,int ma,int na,double alphaa,
+                                                double xb,double yb,double zb,double normb,
+                                                int lb,int mb,int nb,double alphab,
+                                                double xc,double yc,double zc,double normc,
+                                                int lc,int mc,int nc,double alphac,
+                                                double xd,double yd,double zd,double normd,
+                                                int ld,int md,int nd,double alphad)
 {
   int norder,i;
-  float A,B,xp,yp,zp,xq,yq,zq,X,rho,sum,t,Ix,Iy,Iz;
+  double A,B,xp,yp,zp,xq,yq,zq,X,rho,sum,t,Ix,Iy,Iz;
   
   norder = (la+ma+na+lb+nb+mb+lc+mc+nc+ld+md+nd)/2 + 1;
   A = alphaa+alphab; 
@@ -1472,30 +1446,30 @@ __device__ float cuda_rys_coulomb_repulsion(float xa,float ya,float za,float nor
   rho = A*B/(A+B);
   X = rho * ((xp-xq)*(xp-xq)+(yp-yq)*(yp-yq)+(zp-zq)*(zp-zq));
 
-  float alpha_ab_A = alphaa * alphab / A;
-  float alpha_cd_B = alphac * alphad / B;
-  float sqrt_AB = sqrt(A * B);
+  double alpha_ab_A = alphaa * alphab / A;
+  double alpha_cd_B = alphac * alphad / B;
+  double sqrt_AB = sqrt(A * B);
 
-  float roots[MAXROOTS],weights[MAXROOTS];
-  float G[MAXROOTS][MAXROOTS];
+  double roots[MAXROOTS],weights[MAXROOTS];
+  double G[MAXROOTS][MAXROOTS];
 
-  cuda_Roots(norder,X, roots,weights); // get currect roots/weights
+  cuda_Roots_dp(norder,X, roots,weights); // get currect roots/weights
 
   sum = 0.;
   for (i=0; i<norder; i++){
     t = roots[i];
 
-    float inv_t1, B00, B1, B1p;
+    double inv_t1, B00, B1, B1p;
     inv_t1 = 1.0 / (1 + t);
     B00 = 0.5 * t/(A+B) * inv_t1;
     B1  = 0.5 / A * inv_t1 + B00;
     B1p = 0.5 / B * inv_t1 + B00;
 
-    Ix = cuda_Int1d(la,lb,lc,ld, xa,xb,xc,xd,
+    Ix = cuda_Int1d_dp(la,lb,lc,ld, xa,xb,xc,xd,
            alpha_ab_A,alpha_cd_B,sqrt_AB, A,B,xp,xq, inv_t1,B00,B1,B1p, G);
-    Iy = cuda_Int1d(ma,mb,mc,md, ya,yb,yc,yd,
+    Iy = cuda_Int1d_dp(ma,mb,mc,md, ya,yb,yc,yd,
            alpha_ab_A,alpha_cd_B,sqrt_AB, A,B,yp,yq, inv_t1,B00,B1,B1p, G);
-    Iz = cuda_Int1d(na,nb,nc,nd, za,zb,zc,zd,
+    Iz = cuda_Int1d_dp(na,nb,nc,nd, za,zb,zc,zd,
            alpha_ab_A,alpha_cd_B,sqrt_AB, A,B,zp,zq, inv_t1,B00,B1,B1p, G);
     sum = sum + Ix*Iy*Iz*weights[i]; /* ABD eq 5 & 9 */
   }
@@ -1505,11 +1479,11 @@ __device__ float cuda_rys_coulomb_repulsion(float xa,float ya,float za,float nor
 }
 
 
-__global__ void cuda_rys_eri_2d(double *xa,double *ya,double *za,
-                                int *la,int *ma,int *na,float *aexps,float *acoef,
-                                double *xb,double *yb,double *zb,
-                                int *lb,int *mb,int *nb,float *bexps,float *bcoef,
-                                int n_combi, int *start_contr, int *end_contr, double *eri)
+__global__ void cuda_rys_eri_2d_dp(double *xa,double *ya,double *za,
+                                   int *la,int *ma,int *na,float *aexps,float *acoef,
+                                   double *xb,double *yb,double *zb,
+                                   int *lb,int *mb,int *nb,float *bexps,float *bcoef,
+                                   int n_combi, int *start_contr, int *end_contr, double *eri)
 {
     // do the usual computation separately in each dimension:
     int idx_i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -1524,11 +1498,11 @@ __global__ void cuda_rys_eri_2d(double *xa,double *ya,double *za,
     int start_k = start_contr[idx_k];
     int end_k   = end_contr[idx_k];
 
-    float xai[3] = {(float)xa[idx_i],(float)ya[idx_i],(float)za[idx_i]};
-    float xbi[3] = {(float)xb[idx_i],(float)yb[idx_i],(float)zb[idx_i]};
-                                                             
-    float xak[3] = {(float)xa[idx_k],(float)ya[idx_k],(float)za[idx_k]};
-    float xbk[3] = {(float)xb[idx_k],(float)yb[idx_k],(float)zb[idx_k]};
+    double xai[3] = {xa[idx_i],ya[idx_i],za[idx_i]};
+    double xbi[3] = {xb[idx_i],yb[idx_i],zb[idx_i]};
+                                         
+    double xak[3] = {xa[idx_k],ya[idx_k],za[idx_k]};
+    double xbk[3] = {xb[idx_k],yb[idx_k],zb[idx_k]};
 
     double this_eri = 0.0;
     for (int i = start_i; i <= end_i; ++ i)
@@ -1541,15 +1515,15 @@ __global__ void cuda_rys_eri_2d(double *xa,double *ya,double *za,
             int lak[3] = {la[k],ma[k],na[k]};
             int lbk[3] = {lb[k],mb[k],nb[k]};
 
-            this_eri += cuda_rys_coulomb_repulsion(
-                        xai[0],xai[1],xai[2],acoef[i],
-                        lai[0],lai[1],lai[2],aexps[i],
-                        xbi[0],xbi[1],xbi[2],bcoef[i],
-                        lbi[0],lbi[1],lbi[2],bexps[i],
-                        xak[0],xak[1],xak[2],acoef[k],
-                        lak[0],lak[1],lak[2],aexps[k],
-                        xbk[0],xbk[1],xbk[2],bcoef[k],
-                        lbk[0],lbk[1],lbk[2],bexps[k]);
+            this_eri += cuda_rys_coulomb_repulsion_dp(
+                        xai[0],xai[1],xai[2],(double)acoef[i],
+                        lai[0],lai[1],lai[2],(double)aexps[i],
+                        xbi[0],xbi[1],xbi[2],(double)bcoef[i],
+                        lbi[0],lbi[1],lbi[2],(double)bexps[i],
+                        xak[0],xak[1],xak[2],(double)acoef[k],
+                        lak[0],lak[1],lak[2],(double)aexps[k],
+                        xbk[0],xbk[1],xbk[2],(double)bcoef[k],
+                        lbk[0],lbk[1],lbk[2],(double)bexps[k]);
         }
     }
     eri[index] = this_eri;
