@@ -640,6 +640,8 @@ int main(int argc, char* argv[])
 
     free(p_atom->nuc_chg);
 
+    free(p_atom);
+
     // free arrays for basis set
     for (ibasis = 0; ibasis < p_basis->num; ++ ibasis)
     {
@@ -663,6 +665,7 @@ int main(int argc, char* argv[])
 
     free(p_basis->nprims);
 
+    free(p_basis);
 
     //====== the end of program ========
 

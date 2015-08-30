@@ -1533,13 +1533,13 @@ __global__ void cuda_rys_eri_2d(float *xa,float *ya,float *za,
     double this_eri = 0.0;
     for (int i = start_i; i <= end_i; ++ i)
     {
-        float lai[3] = {la[i],ma[i],na[i]};
-        float lbi[3] = {lb[i],mb[i],nb[i]};
+        int lai[3] = {la[i],ma[i],na[i]};
+        int lbi[3] = {lb[i],mb[i],nb[i]};
 
         for (int k = start_k; k <= end_k; ++ k)
         {
-            float lak[3] = {la[k],ma[k],na[k]};
-            float lbk[3] = {lb[k],mb[k],nb[k]};
+            int lak[3] = {la[k],ma[k],na[k]};
+            int lbk[3] = {lb[k],mb[k],nb[k]};
 
             this_eri += cuda_rys_coulomb_repulsion(
                         xai[0],xai[1],xai[2],acoef[i],
