@@ -17,12 +17,14 @@
  of this software, even if advised of the possibility of such damage.
  *****************************************************************************/
 
+#include <ctime>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
 #include <string>
+#include <iostream>
 
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_blas.h>
@@ -42,6 +44,14 @@
 
 int main(int argc, char* argv[])
 {
+    // initialize timer
+    clock_t t0, t1;
+    double  time_in_sec, time_total;
+
+    t0 = clock();
+    std::string time_txt ("");
+    time_total = 0.0;
+
     // use spherical harmonic d function
     const int use_5d = 1;
 
@@ -115,6 +125,11 @@ int main(int argc, char* argv[])
     print_basis(p_basis);
 #endif
 
+    t1 = clock();
+    time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
+    time_txt += "Time_Basis    = " + std::to_string(time_in_sec) + " sec\n";
+    time_total += time_in_sec;
+
 
     //====== one- and two-electron integrals ========
 
@@ -175,6 +190,11 @@ int main(int argc, char* argv[])
             */
         }
     }
+
+    t0 = clock();
+    time_in_sec = (t0 - t1) / (double)CLOCKS_PER_SEC;
+    time_txt += "Time_1e_Ints  = " + std::to_string(time_in_sec) + " sec\n";
+    time_total += time_in_sec;
 
 
     // count number of primitive integrals in a <bra| or |ket>
@@ -281,6 +301,12 @@ int main(int argc, char* argv[])
     fprintf(stdout, "Num_Prim_Combi  = %d (%d)\n", index, count_prim);
     fprintf(stdout, "Num_Contr_Combi = %d (%d)\n", index_contr, n_combi);
 
+    t1 = clock();
+    time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
+    time_txt += "Time_2e_Prep  = " + std::to_string(time_in_sec) + " sec\n";
+    time_total += time_in_sec;
+
+
     // initialize arrays on device
     float *dev_xa, *dev_ya, *dev_za;
     float *dev_xb, *dev_yb, *dev_zb;
@@ -380,6 +406,11 @@ int main(int argc, char* argv[])
     my_cuda_safe(cudaMemcpy(dev_start_contr, h_start_contr, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_start");
     my_cuda_safe(cudaMemcpy(dev_end_contr,   h_end_contr,   n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_end");
 
+    t0 = clock();
+    time_in_sec = (t0 - t1) / (double)CLOCKS_PER_SEC;
+    time_txt += "Time_2e_DMem  = " + std::to_string(time_in_sec) + " sec\n";
+    time_total += time_in_sec;
+
 
     // create 8x8 thread blocks
     dim3 block_size;
@@ -398,8 +429,19 @@ int main(int argc, char* argv[])
          dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
          n_combi, dev_start_contr, dev_end_contr, dev_eri);
 
+    t1 = clock();
+    time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
+    time_txt += "Time_2e_GPU   = " + std::to_string(time_in_sec) + " sec\n";
+    time_total += time_in_sec;
+
+
     // copy the results back to host
     my_cuda_safe(cudaMemcpy(h_eri, dev_eri, n_ERI_bytes, cudaMemcpyDeviceToHost),"mem_eri"); 
+
+    t0 = clock();
+    time_in_sec = (t0 - t1) / (double)CLOCKS_PER_SEC;
+    time_txt += "Time_2e_HMem  = " + std::to_string(time_in_sec) + " sec\n";
+    time_total += time_in_sec;
 
 
     /* just for test...
@@ -501,6 +543,11 @@ int main(int argc, char* argv[])
     form_Q(p_basis, Q);
     */
 
+    t1 = clock();
+    time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
+    time_txt += "Time_SCF_Init = " + std::to_string(time_in_sec) + " sec\n";
+    time_total += time_in_sec;
+
 
     // start SCF iterations
     int iter = 0;
@@ -580,6 +627,12 @@ int main(int argc, char* argv[])
 
     // SCF converged
     fprintf(stdout, "SCF converged! E_total = %20.10f\n", ene_total);
+
+    t0 = clock();
+    time_in_sec = (t0 - t1) / (double)CLOCKS_PER_SEC;
+    time_txt += "Time_SCF_Conv = " + std::to_string(time_in_sec) + " sec\n";
+    time_total += time_in_sec;
+
 
     // print MO information
     fprintf(stdout, "%5s %10s %15s %12s\n", "MO", "State", "E(Eh)", "E(eV)");
@@ -666,6 +719,16 @@ int main(int argc, char* argv[])
     free(p_basis->nprims);
 
     free(p_basis);
+
+    t1 = clock();
+    time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
+    time_txt += "Time_Finalize = " + std::to_string(time_in_sec) + " sec\n";
+    time_total += time_in_sec;
+
+
+    std::cout << time_txt;
+    std::cout << "Total time used " << time_total << " sec\n";
+
 
     //====== the end of program ========
 
