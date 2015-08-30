@@ -1435,9 +1435,9 @@ __device__ float cuda_Int1d(int i, int j, int k, int l,
 
   // Compute and output I(i,j,k,l) from I(i+j,0,k+l,0) (G) 
   float ijkl = 0.0;
-  for (int m=0; m<l+1; m++){
+  for (int m=0; m<l+1; ++m){
     float ijm0 = 0.0;
-    for (int n=0; n<j+1; n++) // I(i,j,m,0)<-I(n,0,m,0)  
+    for (int n=0; n<j+1; ++n) // I(i,j,m,0)<-I(n,0,m,0)  
       ijm0 += cuda_binomial(j,n)*pow(xij,j-n)*G[n+i][m+k];
     ijkl += cuda_binomial(l,m)*pow(xkl,l-m)*ijm0; // I(i,j,k,l)<-I(i,j,m,0) 
   }
@@ -1482,7 +1482,7 @@ __device__ float cuda_rys_coulomb_repulsion(float xa, float ya, float za, float 
   cuda_Roots(norder,X, roots,weights); // get currect roots/weights
 
   sum = 0.;
-  for (i=0; i<norder; i++){
+  for (i=0; i<norder; ++i){
     t = roots[i];
 
     float inv_t1, B00, B1, B1p;

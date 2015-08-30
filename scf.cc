@@ -96,10 +96,9 @@ void my_eigen_symmv(gsl_matrix* data, int DIM,
 //===============================
 void my_print_matrix(gsl_matrix* A)
 {
-    int row, col;
-    for (row=0; row < A->size1; row++)
+    for (int row = 0; row < A->size1; ++ row)
     {
-        for (col=0; col < A->size2; col++)
+        for (int col = 0; col < A->size2; ++ col)
         {
             printf("%12.7f", gsl_matrix_get(A, row, col));
         }
@@ -112,8 +111,7 @@ void my_print_matrix(gsl_matrix* A)
 //===============================
 void my_print_vector(gsl_vector* x)
 {
-    int row;
-    for (row=0; row < x->size; row++)
+    for (int row = 0; row < x->size; ++ row)
     {
         printf("%12.7f\n", gsl_vector_get(x, row));
     }
@@ -124,13 +122,12 @@ void my_print_vector(gsl_vector* x)
 //===============================
 void sum_H_core(int nbasis, gsl_matrix *H_core, gsl_matrix *T, gsl_matrix *V)
 {
-    int row, col;
-    for (row=0; row<nbasis; row++)
+    for (int row = 0; row < nbasis; ++ row)
     {
-       for (col=0; col<nbasis; col++)
+       for (int col = 0; col < nbasis; ++ col)
        {
             gsl_matrix_set(H_core, row, col, 
-                    gsl_matrix_get(T, row, col) + gsl_matrix_get(V, row, col));
+                gsl_matrix_get(T, row, col) + gsl_matrix_get(V, row, col));
        }
     }
 }
@@ -151,11 +148,10 @@ void diag_overlap(int nbasis, gsl_matrix *S, gsl_matrix *S_invsqrt)
     // AS_invsqrt: AS^-1/2
     gsl_matrix *AS_invsqrt = gsl_matrix_alloc(nbasis, nbasis);
     gsl_matrix_set_zero(AS_invsqrt);
-    int row;
-    for (row=0; row < nbasis; row++)
+    for (int row = 0; row < nbasis; ++ row)
     {
         gsl_matrix_set(AS_invsqrt, row, row, 
-                1.0 / sqrt(gsl_vector_get(eig_S, row)));
+            1.0 / sqrt(gsl_vector_get(eig_S, row)));
     }
 
     // S^-1/2 = LS * AS^-1/2 * LS(T)
@@ -202,14 +198,12 @@ void Fock_to_Coef(int nbasis, gsl_matrix *Fock, gsl_matrix *S_invsqrt,
 //===============================
 void Coef_to_Dens(int nbasis, int n_occ, gsl_matrix *Coef, gsl_matrix *D)
 {    
-    int row, col;
-    for (row=0; row < nbasis; row++)
+    for (int row=0; row < nbasis; ++ row)
     {
-       for (col=0; col < nbasis; col++)
+       for (int col=0; col < nbasis; ++ col)
         {
             double val = 0.0;
-            int m;
-               for (m=0; m < n_occ; m++)
+            for (int m = 0; m < n_occ; ++ m)
             {
                 val += gsl_matrix_get(Coef, row, m) * gsl_matrix_get(Coef, col, m);
             }
@@ -225,17 +219,15 @@ double get_elec_ene(int nbasis, gsl_matrix *D, gsl_matrix *H_core,
                     gsl_matrix *Fock)
 {    
     double ene_elec = 0.0;
-    int row, col;
-    for (row=0; row < nbasis; row++)
+    for (int row = 0; row < nbasis; ++ row)
     {
-       for (col=0; col < nbasis; col++)
+       for (int col = 0; col < nbasis; ++ col)
        {
             ene_elec += 0.5 * gsl_matrix_get(D, row, col) *
-                            (gsl_matrix_get(H_core, row, col) + 
-                             gsl_matrix_get(Fock, row, col));
+                        (gsl_matrix_get(H_core, row, col) + 
+                         gsl_matrix_get(Fock, row, col));
        }
     }
-
     return ene_elec;
 }
 
@@ -244,20 +236,19 @@ double get_elec_ene(int nbasis, gsl_matrix *D, gsl_matrix *H_core,
 //===============================
 void form_G(int nbasis, gsl_matrix *D_prev, double *ERI, gsl_matrix *G)
 {
-    int mu, nu, lam, sig;
-    for (mu=0; mu < nbasis; mu++)
+    for (int mu = 0; mu < nbasis; ++ mu)
     {
-       for (nu=0; nu < nbasis; nu++)
+       for (int nu = 0; nu < nbasis; ++ nu)
         {
             double val = 0.0;
-               for (lam=0; lam < nbasis; lam++)
+            for (int lam = 0; lam < nbasis; ++ lam)
             {
-                   for (sig=0; sig < nbasis; sig++)
+                for (int sig = 0; sig < nbasis; ++ sig)
                 {
                     int mnls = ijkl2intindex(mu, nu, lam, sig);
                     int mlns = ijkl2intindex(mu, lam, nu, sig);
                     val += gsl_matrix_get(D_prev, lam, sig) * 
-                            (ERI[mnls] - 0.5 * ERI[mlns]);
+                           (ERI[mnls] - 0.5 * ERI[mlns]);
                 }
             }
             gsl_matrix_set(G, mu, nu, val);
@@ -270,13 +261,12 @@ void form_G(int nbasis, gsl_matrix *D_prev, double *ERI, gsl_matrix *G)
 //===============================
 void form_Fock(int nbasis, gsl_matrix *H_core, gsl_matrix *G, gsl_matrix *Fock)
 {
-    int mu, nu;
-    for (mu=0; mu < nbasis; mu++)
+    for (int mu = 0; mu < nbasis; ++ mu)
     {
-        for (nu=0; nu < nbasis; nu++)
+        for (int nu = 0; nu < nbasis; ++ nu)
         {
             gsl_matrix_set(Fock, mu, nu, 
-                    gsl_matrix_get(H_core, mu, nu) + gsl_matrix_get(G, mu, nu));
+                gsl_matrix_get(H_core, mu, nu) + gsl_matrix_get(G, mu, nu));
         }
     }
 }
@@ -285,16 +275,14 @@ void form_Fock(int nbasis, gsl_matrix *H_core, gsl_matrix *G, gsl_matrix *Fock)
 // Generalized Wolfsberg-Helmholtz initial guess
 void init_guess_GWH(Basis *p_basis, gsl_matrix *H_core, gsl_matrix *S, gsl_matrix *Fock)
 {
-    double cx = 1.0;
-    int mu, nu;
-    for (mu = 0; mu < p_basis->num; ++ mu)
+    for (int mu = 0; mu < p_basis->num; ++ mu)
     {
         double Hmm = gsl_matrix_get(H_core, mu, mu);
-        for (nu = 0; nu < p_basis->num; ++ nu)
+        for (int nu = 0; nu < p_basis->num; ++ nu)
         {
             double Smn = gsl_matrix_get(S, mu, nu);
             double Hnn = gsl_matrix_get(H_core, nu, nu);
-            double Fmn = cx * Smn * (Hmm + Hnn) / 2.0;
+            double Fmn = Smn * (Hmm + Hnn) / 2.0;
             gsl_matrix_set(Fock, mu, nu, Fmn);
         }
     }
@@ -303,8 +291,8 @@ void init_guess_GWH(Basis *p_basis, gsl_matrix *H_core, gsl_matrix *S, gsl_matri
 
 // DIIS
 void update_Fock_DIIS(int *p_diis_dim, int *p_diis_index, double *p_delta_DIIS, 
-                        gsl_matrix *Fock, gsl_matrix *D_prev, gsl_matrix *S, Basis *p_basis,
-                        double ***diis_err, double ***diis_Fock)
+                      gsl_matrix *Fock, gsl_matrix *D_prev, gsl_matrix *S, Basis *p_basis,
+                      double ***diis_err, double ***diis_Fock)
 {
     int diis_dim = *p_diis_dim;
     int diis_index = *p_diis_index;
@@ -328,10 +316,9 @@ void update_Fock_DIIS(int *p_diis_dim, int *p_diis_index, double *p_delta_DIIS,
 
     // new error matrix: e = FDS - SDF
     delta_DIIS = 0.0;
-    int row, col;
-    for (row=0; row < p_basis->num; row++)
+    for (int row = 0; row < p_basis->num; ++ row)
     {
-        for (col=0; col < p_basis->num; col++)
+        for (int col=0; col < p_basis->num; ++ col)
         {
             double err = gsl_matrix_get(FDS, row, col) - gsl_matrix_get(SDF, row, col);
 
@@ -353,17 +340,16 @@ void update_Fock_DIIS(int *p_diis_dim, int *p_diis_index, double *p_delta_DIIS,
         gsl_matrix *B  = gsl_matrix_alloc(diis_dim + 1, diis_dim + 1);
         gsl_vector *bb = gsl_vector_alloc(diis_dim + 1);
 
-        for (row = 0; row < diis_dim; ++ row)
+        for (int row = 0; row < diis_dim; ++ row)
         {
-            for (col = 0; col < diis_dim; ++ col)
+            for (int col = 0; col < diis_dim; ++ col)
             {
                 gsl_matrix_set (B, row, col,
-                        mat_inn_prod(p_basis->num, diis_err[row], diis_err[col]));
+                    mat_inn_prod(p_basis->num, diis_err[row], diis_err[col]));
             }
         }
 
-        int idiis;
-        for (idiis = 0; idiis < diis_dim; ++ idiis)
+        for (int idiis = 0; idiis < diis_dim; ++ idiis)
         {
             gsl_matrix_set (B, diis_dim, idiis, -1.0);
             gsl_matrix_set (B, idiis, diis_dim, -1.0);
@@ -383,13 +369,13 @@ void update_Fock_DIIS(int *p_diis_dim, int *p_diis_index, double *p_delta_DIIS,
 
         // update Fock matrix
         gsl_matrix_set_zero (Fock);
-        for (idiis = 0; idiis < diis_dim; ++ idiis)
+        for (int idiis = 0; idiis < diis_dim; ++ idiis)
         {
             double ci = gsl_vector_get (cc, idiis);
 
-            for (row = 0; row < p_basis->num; ++ row)
+            for (int row = 0; row < p_basis->num; ++ row)
             {
-                for (col = 0; col < p_basis->num; ++ col)
+                for (int col = 0; col < p_basis->num; ++ col)
                 {
                     double Fab = gsl_matrix_get (Fock, row, col);
                     Fab += ci * diis_Fock[idiis][row][col];
@@ -419,10 +405,9 @@ void direct_form_G(Basis *p_basis, gsl_matrix *D_prev, gsl_matrix *Q, gsl_matrix
 {
     gsl_matrix_set_zero(G);
 
-    int a, b, c, d;
-    for (a = 0; a < p_basis->num; ++ a)
+    for (int a = 0; a < p_basis->num; ++ a)
     {
-        for (b = 0; b <= a; ++ b)
+        for (int b = 0; b <= a; ++ b)
         {
             //int ij = ij2intindex(a, b);
 
@@ -432,7 +417,7 @@ void direct_form_G(Basis *p_basis, gsl_matrix *D_prev, gsl_matrix *Q, gsl_matrix
             double Dab = gsl_matrix_get(D_prev,a,b);
             if (fabs(2.0 * Dab) > Dmax) { Dmax = fabs(2.0 * Dab); }
 
-            for (c = 0; c <= a; ++ c)
+            for (int c = 0; c <= a; ++ c)
             {
                 double half_Dac = 0.5 * gsl_matrix_get(D_prev,a,c);
                 double half_Dbc = 0.5 * gsl_matrix_get(D_prev,b,c);
@@ -440,7 +425,7 @@ void direct_form_G(Basis *p_basis, gsl_matrix *D_prev, gsl_matrix *Q, gsl_matrix
                 if (fabs(half_Dbc) > Dmax) { Dmax = fabs(half_Dbc); }
 
                 int d_max = (a == c) ? b : c;
-                for (d = 0; d <= d_max; ++ d)
+                for (int d = 0; d <= d_max; ++ d)
                 {
                     //int kl = ij2intindex(c, d);
                     //if (ij < kl) { continue; }
@@ -531,10 +516,9 @@ void direct_form_G(Basis *p_basis, gsl_matrix *D_prev, gsl_matrix *Q, gsl_matrix
 // sqrt(ab|ab) for prescreening 
 void form_Q(Basis *p_basis, gsl_matrix *Q)
 {
-    int a, b;
-    for (a = 0; a < p_basis->num; ++ a)
+    for (int a = 0; a < p_basis->num; ++ a)
     {
-        for (b = 0; b <= a; ++ b)
+        for (int b = 0; b <= a; ++ b)
         {
             double eri = calc_int_eri_rys(p_basis, a, b, a, b);
             double Qab = sqrt(eri);

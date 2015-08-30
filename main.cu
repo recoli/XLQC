@@ -71,8 +71,7 @@ int main(int argc, char* argv[])
     p_atom->pos = (double **)my_malloc(sizeof(double *) * p_atom->num);
     p_atom->name = (char **)my_malloc(sizeof(char *) * p_atom->num);
 
-    int iatom;
-    for (iatom = 0; iatom < p_atom->num; ++ iatom)
+    for (int iatom = 0; iatom < p_atom->num; ++ iatom)
     {
         p_atom->pos[iatom] = (double *)my_malloc(sizeof(double) * CART_DIM);
         p_atom->name[iatom] = (char *)my_malloc(sizeof(char) * 5);
@@ -85,7 +84,7 @@ int main(int argc, char* argv[])
     read_geom(p_atom);
 
     fprintf(stdout, "Coordinates in atomic unit:\n");
-    for (iatom = 0; iatom < p_atom->num; ++ iatom)
+    for (int iatom = 0; iatom < p_atom->num; ++ iatom)
     {
         fprintf(stdout, "%s (%.1f)  %.10f  %.10f  %.10f\n", 
                 p_atom->name[iatom], (double)p_atom->nuc_chg[iatom],
@@ -144,13 +143,10 @@ int main(int argc, char* argv[])
     // two-electron ingetral
     int n_combi = p_basis->num * (p_basis->num + 1) / 2;
     int n_eri = n_combi * (n_combi + 1) / 2;
-    //fprintf(stdout, "N_eri = %d\n", n_eri);
-    //double *ERI = (double *)my_malloc_2(sizeof(double) * n_eri, "ERI");
 
-    int a,b;
-    for (a = 0; a < p_basis->num; ++ a)
+    for (int a = 0; a < p_basis->num; ++ a)
     {
-        for (b = 0; b <= a; ++ b)
+        for (int b = 0; b <= a; ++ b)
         {
             // overlap
             double s = calc_int_overlap(p_basis, a, b);
@@ -171,26 +167,6 @@ int main(int argc, char* argv[])
                 gsl_matrix_set(T, b, a, t);
                 gsl_matrix_set(V, b, a, v);
             }
-
-            /*
-            // two-electron integral
-            int ij = ij2intindex(a, b);
-            for (int c = 0; c <= a; ++ c)
-            {
-                int d_max = (a == c) ? b : c;
-                for (int d = 0; d <= d_max; ++ d)
-                {
-                    int kl = ij2intindex(c, d);
-                    //if (ij < kl) { continue; }
-
-                    int ijkl = ij2intindex(ij, kl);
-
-                    double eri = calc_int_eri_rys(p_basis, a, b, c, d);
-
-                    ERI[ijkl] = eri;
-                }
-            }
-            */
         }
     }
 
@@ -202,21 +178,23 @@ int main(int argc, char* argv[])
 
     // count number of primitive integrals in a <bra| or |ket>
     int count_prim = 0;
-    int i,j;
-    for (a = 0; a < p_basis->num; ++ a)
+    for (int a = 0; a < p_basis->num; ++ a)
     {
         int lena = p_basis->nprims[a];
-        for (b = 0; b <= a; ++ b)
+        for (int b = 0; b <= a; ++ b)
         {
             int lenb = p_basis->nprims[b];
         
-            for (i=0; i<lena; i++)
-                for (j=0; j<lenb; j++)
+            for (int i = 0; i < lena; ++ i)
+                for (int j = 0; j < lenb; ++ j)
                     ++ count_prim;
         }
     }
 
     // allocate memory for arrays on host
+    // CI:  contracted integrals
+    // PI:  primitive integrals
+    // ERI: electron repulsion integrals
     size_t n_CI_bytes     = sizeof(double) * n_combi;
     size_t n_CI_bytes_int = sizeof(int)    * n_combi;
     size_t n_PI_bytes     = sizeof(double) * count_prim;
@@ -237,12 +215,12 @@ int main(int argc, char* argv[])
     int *h_mb = (int *)my_malloc(n_PI_bytes_int);
     int *h_nb = (int *)my_malloc(n_PI_bytes_int);
 
+    // note that 'anorm' is absorbed into 'acoef'
     double *h_aexps = (double *)my_malloc(n_PI_bytes);
     double *h_acoef = (double *)my_malloc(n_PI_bytes);
-    // note that 'anorm' is absorbed into 'acoef'
+    // note that 'bnorm' is absorbed into 'bcoef'
     double *h_bexps = (double *)my_malloc(n_PI_bytes);
     double *h_bcoef = (double *)my_malloc(n_PI_bytes);
-    // note that 'bnorm' is absorbed into 'bcoef'
 
     int *h_start_contr = (int *)my_malloc(n_CI_bytes_int);
     int *h_end_contr   = (int *)my_malloc(n_CI_bytes_int);
@@ -255,10 +233,10 @@ int main(int argc, char* argv[])
     int index = 0;
     int index_contr = 0;
 
-    for (a = 0; a < p_basis->num; ++ a)
+    for (int a = 0; a < p_basis->num; ++ a)
     {
         int lena = p_basis->nprims[a];
-        for (b = 0; b <= a; ++ b)
+        for (int b = 0; b <= a; ++ b)
         {
             int lenb = p_basis->nprims[b];
 
@@ -272,18 +250,17 @@ int main(int argc, char* argv[])
             h_yb[index_contr] = p_basis->ybas[b];
             h_zb[index_contr] = p_basis->zbas[b];
                             
-            int i,j;
-            for (i=0; i<lena; i++)
+            for (int i = 0; i < lena; ++ i)
             {
-                for (j=0; j<lenb; j++)
+                for (int j = 0; j < lenb; ++ j)
                 {
+                    // note that 'anorm' is absorbed into 'acoef'
                     h_aexps[index] = p_basis->expon[a][i];
                     h_acoef[index] = p_basis->coef[a][i] * p_basis->norm[a][i];
-                    // note that 'anorm' is absorbed into 'acoef'
 
+                    // note that 'bnorm' is absorbed into 'bcoef'
                     h_bexps[index] = p_basis->expon[b][j];
                     h_bcoef[index] = p_basis->coef[b][j] * p_basis->norm[b][j];
-                    // note that 'bnorm' is absorbed into 'bcoef'
 
                     h_la[index] = p_basis->lx[a][i];
                     h_ma[index] = p_basis->ly[a][i];
@@ -372,7 +349,7 @@ int main(int argc, char* argv[])
     if(dev_aexps == NULL || dev_acoef == NULL ||
        dev_bexps == NULL || dev_bcoef == NULL)
     {
-        fprintf(stderr, "Error: cannot cudaMalloc for exp_basis!\n");
+        fprintf(stderr, "Error: cannot cudaMalloc for exps_basis!\n");
         exit(1);
     }
 
@@ -455,26 +432,11 @@ int main(int argc, char* argv[])
     time_total += time_in_sec;
 
 
-    /* just for test...
-    int check_passed = 1;
-    for (i = 0; i < n_eri; ++ i)
-    {
-        double diff = fabs(h_eri[i]-ERI[i]);
-        if (diff > 1e-12)
-        {
-            check_passed = 0;
-            printf("%-8d %18.12f %18.12f   %18.12f\n", i, ERI[i], h_eri[i], ERI[i]-h_eri[i]);
-        }
-    }
-    if (check_passed) { printf("Check passed!\n"); }
-    */
-
-
     //====== start SCF calculation ========
 
     // NOTE: assume zero charge and closed-shell electronics structure
     int n_elec = 0;
-    for (iatom = 0; iatom < p_atom->num; ++ iatom)
+    for (int iatom = 0; iatom < p_atom->num; ++ iatom)
     {
         n_elec += p_atom->nuc_chg[iatom];
     }
@@ -694,7 +656,7 @@ int main(int argc, char* argv[])
     gsl_vector_free(emo);
 
     // free arrays for geometry
-    for (iatom = 0; iatom < p_atom->num; ++ iatom)
+    for (int iatom = 0; iatom < p_atom->num; ++ iatom)
     {
         free(p_atom->pos[iatom]);
         free(p_atom->name[iatom]);

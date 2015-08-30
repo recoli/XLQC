@@ -56,10 +56,7 @@ void* my_malloc_2(size_t bytes, std::string word)
         fprintf(stderr, "Error: could not allocate memory for %s !\n", word.c_str());
         exit(1);
     } 
-    else 
-    {
-        return ptr;
-    }
+    return ptr;
 }
 
 void* my_realloc(void* ptr, size_t bytes) 
@@ -101,8 +98,7 @@ int get_nuc_chg(char *element)
 
     std::string elem_name = std::string(element);
 
-    int z;
-    for (z = 1; z <= 88; ++ z)
+    for (int z = 1; z <= 88; ++ z)
     {
         if (0 == elem_name.compare(periodic[z]))
         {
@@ -171,8 +167,7 @@ void read_geom(Atom *p_atom)
     // read comment line
     if (fgets(line, MAX_STR_LEN, f_geom) != NULL) {}
 
-    int iatom;
-    for (iatom = 0; iatom < natoms; ++ iatom)
+    for (int iatom = 0; iatom < natoms; ++ iatom)
     {
         if (fgets(line, MAX_STR_LEN, f_geom) != NULL)
         {
@@ -193,17 +188,16 @@ void read_geom(Atom *p_atom)
 double calc_ene_nucl(Atom *p_atom)
 {
     double ene_nucl = 0.0;
-    int ata, atb;
-    for (ata = 0; ata < p_atom->num; ++ ata)
+    for (int a = 0; a < p_atom->num; ++ a)
     {
-        for (atb = ata + 1; atb < p_atom->num; ++ atb)
+        for (int b = a + 1; b < p_atom->num; ++ b)
         {
-            double dx = p_atom->pos[ata][0] - p_atom->pos[atb][0];
-            double dy = p_atom->pos[ata][1] - p_atom->pos[atb][1];
-            double dz = p_atom->pos[ata][2] - p_atom->pos[atb][2];
+            double dx = p_atom->pos[a][0] - p_atom->pos[b][0];
+            double dy = p_atom->pos[a][1] - p_atom->pos[b][1];
+            double dz = p_atom->pos[a][2] - p_atom->pos[b][2];
             double dr = sqrt(dx*dx + dy*dy + dz*dz);
-            ene_nucl += (double)p_atom->nuc_chg[ata] * 
-                        (double)p_atom->nuc_chg[atb] / dr;
+            ene_nucl += (double)p_atom->nuc_chg[a] * 
+                        (double)p_atom->nuc_chg[b] / dr;
         }
     }
     return ene_nucl;
@@ -314,8 +308,7 @@ void parse_basis(Atom *p_atom, Basis *p_basis, int use_5d)
 
                 fprintf(f_elem, "%s   %d   %.2f\n", cart_type, nprims, dbl_num);
 
-                int iprim;
-                for (iprim = 0; iprim < nprims; ++ iprim)
+                for (int iprim = 0; iprim < nprims; ++ iprim)
                 {
                     if (fgets(line, MAX_STR_LEN, f_basis) != NULL)
                     {
@@ -350,13 +343,12 @@ void parse_basis(Atom *p_atom, Basis *p_basis, int use_5d)
         exit(1);
     }
 
-    int iatom;
-    for (iatom = 0; iatom < p_atom->num; ++ iatom)
+    for (int iatom = 0; iatom < p_atom->num; ++ iatom)
     {
         // find the correct element for this atom
         // and count number of basis functions
         int found = 0;
-        for (ielem = 0; ielem < nelems; ++ ielem)
+        for (int ielem = 0; ielem < nelems; ++ ielem)
         {
             if (p_atom->nuc_chg[iatom] == elem_nuc_chg[ielem])
             {
@@ -462,8 +454,7 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
                     else { N = N_D_CART;  ptr_lmn = &d_lmn_cart[0];  num_basis = 6; }
                 }
 
-                int iprim;
-                for (iprim = 0; iprim < nprims; ++ iprim)
+                for (int iprim = 0; iprim < nprims; ++ iprim)
                 {
                     if (fgets(line, MAX_STR_LEN, f_basis_all) != NULL)
                     {
@@ -484,8 +475,7 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
                         // Convert: ZZ->D0, XX->D+2
 
 
-                        int ii;
-                        for (ii = 0; ii < N; ++ ii)
+                        for (int ii = 0; ii < N; ++ ii)
                         {
                             // allocate memories at the beginning
                             if (0 == iprim)
@@ -518,11 +508,10 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
                                 p_basis->ybas[ibasis + ii] = p_atom->pos[iatom][1];
                                 p_basis->zbas[ibasis + ii] = p_atom->pos[iatom][2];
                             }
-                        }
 
-                        // assign values for expon, coef, and lx,ly,lz
-                        for (ii = 0; ii < N; ++ ii)
-                        {
+                            // after memory allocation, assign values for
+                            // expon, coef, and lx,ly,lz
+
                             // assign exponents
                             p_basis->expon[ibasis + ii][iprim] = expon_1;
 

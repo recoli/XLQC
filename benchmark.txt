@@ -1,5 +1,5 @@
 Version 0.3.3
-
+==================
 Water molecule
 O  0.0  -0.0757918380989205  0.0
 H  0.866811766181276  0.601435735705694  0.0
@@ -14,3 +14,17 @@ Hartree-Fock/6-311+G(2d,p)
 reference(g09.d01)  -76.0149725437
 single precision    -76.0149725448    diff=1.1e-09    rel_diff=1.4e-11
 double precision    -76.0149725433    diff=4.0e-10    rel_diff=5.3e-12
+==================
+HBr molecule
+Br  0.  0.  0.
+H   0.  0.  1.41
+
+Hartree-Fock/3-21G(Note: from EMSL), 5D
+reference(g09.d01)  -2560.61528610
+single precision    -2560.6152642833    diff=2.2e-05    rel_diff=8.5e-09
+double precision    -2560.6152860876    diff=1.2e-08    rel_diff=4.8e-12
+
+Hartree-Fock/6-311G**
+reference(g09.d01)  -2572.95550760
+single precision    -2572.9554136450    diff=9.4e-05    rel_diff=3.7e-08
+
