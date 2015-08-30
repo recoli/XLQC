@@ -572,19 +572,19 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
                                     p_basis->ly[ibasis + ii][iprim] = 0;
                                     p_basis->lz[ibasis + ii][iprim] = 0;
 
-                                    p_basis->expon[ibasis + ii][iprim + 1] = expon_1;
-                                    p_basis->coef[ibasis + ii][iprim + 1]  = -0.5 * coef_1;
+                                    p_basis->expon[ibasis + ii][iprim + nprims] = expon_1;
+                                    p_basis->coef[ibasis + ii][iprim + nprims]  = -0.5 * coef_1;
                                     
-                                    p_basis->lx[ibasis + ii][iprim + 1] = 0;
-                                    p_basis->ly[ibasis + ii][iprim + 1] = 2;
-                                    p_basis->lz[ibasis + ii][iprim + 1] = 0;
+                                    p_basis->lx[ibasis + ii][iprim + nprims] = 0;
+                                    p_basis->ly[ibasis + ii][iprim + nprims] = 2;
+                                    p_basis->lz[ibasis + ii][iprim + nprims] = 0;
 
-                                    p_basis->expon[ibasis + ii][iprim + 2] = expon_1;
-                                    p_basis->coef[ibasis + ii][iprim + 2]  = coef_1;
+                                    p_basis->expon[ibasis + ii][iprim + nprims*2] = expon_1;
+                                    p_basis->coef[ibasis + ii][iprim + nprims*2]  = coef_1;
                                     
-                                    p_basis->lx[ibasis + ii][iprim + 2] = 0;
-                                    p_basis->ly[ibasis + ii][iprim + 2] = 0;
-                                    p_basis->lz[ibasis + ii][iprim + 2] = 2;
+                                    p_basis->lx[ibasis + ii][iprim + nprims*2] = 0;
+                                    p_basis->ly[ibasis + ii][iprim + nprims*2] = 0;
+                                    p_basis->lz[ibasis + ii][iprim + nprims*2] = 2;
                                 }
                                 // D+2 = sqrt(3)/2*(XX-YY)
                                 else if (4 == ii)
@@ -598,12 +598,12 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
                                     p_basis->ly[ibasis + ii][iprim] = 0;
                                     p_basis->lz[ibasis + ii][iprim] = 0;
 
-                                    p_basis->expon[ibasis + ii][iprim + 1] = expon_1;
-                                    p_basis->coef[ibasis + ii][iprim + 1]  = -prefac * coef_1;
+                                    p_basis->expon[ibasis + ii][iprim + nprims] = expon_1;
+                                    p_basis->coef[ibasis + ii][iprim + nprims]  = -prefac * coef_1;
                                     
-                                    p_basis->lx[ibasis + ii][iprim + 1] = 0;
-                                    p_basis->ly[ibasis + ii][iprim + 1] = 2;
-                                    p_basis->lz[ibasis + ii][iprim + 1] = 0;
+                                    p_basis->lx[ibasis + ii][iprim + nprims] = 0;
+                                    p_basis->ly[ibasis + ii][iprim + nprims] = 2;
+                                    p_basis->lz[ibasis + ii][iprim + nprims] = 0;
                                 }
                             }
                         }
