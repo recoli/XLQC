@@ -1,0 +1,16 @@
+Version 0.3.3
+
+Water molecule
+O  0.0  -0.0757918380989205  0.0
+H  0.866811766181276  0.601435735705694  0.0
+H  -0.866811766181276  0.601435735705694  0.0
+
+Hartree-Fock/def-TZVP
+reference(g09.d01)  -76.0177547727
+single precision    -76.0177573890    diff=2.6e-06    rel_diff=3.4e-08
+double precision    -76.0177547717    diff=1.0e-09    rel_diff=1.3e-11
+
+Hartree-Fock/6-311+G(2d,p)
+reference(g09.d01)  -76.0149725437
+single precision    -76.0149725448    diff=1.1e-09    rel_diff=1.4e-11
+double precision    -76.0149725433    diff=4.0e-10    rel_diff=5.3e-12
