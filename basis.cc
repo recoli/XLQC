@@ -424,7 +424,7 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
     int s_lmn[N_S * CART_DIM]   = {0,0,0};
     int sp_lmn[N_SP * CART_DIM] = {0,0,0,  1,0,0,  0,1,0,  0,0,1};
     int p_lmn[N_P * CART_DIM]   = {1,0,0,  0,1,0,  0,0,1};
-    // XY,  YZ,  ZZ,  XZ,  XX  (note: ZZ and XX will be replace by spherical harmonics)
+    // XY,  YZ,  ZZ,  XZ,  XX  (note: ZZ and XX will be replaced by spherical harmonics)
     // D-2, D-1, D 0, D+1, D+2
     int d_lmn[N_D * CART_DIM]   = {1,1,0,  0,1,1,  0,0,2,  1,0,1,  2,0,0};
     // XX, XY, XZ, YY, YZ, ZZ
@@ -447,7 +447,6 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
                 double dbl_num;
                 int    nprims;
                 sscanf(line, "%s%d%lf", cart_type, &nprims, &dbl_num);
-                //p_basis->nprims[ibasis] = nprims;
 
                 if (0 == strcmp(cart_type, "****")) { break; }
 
@@ -472,53 +471,8 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
                         coef_2 = 0.0;
                         sscanf(line, "%lf%lf%lf", &expon_1, &coef_1, &coef_2);
 
-                        int ii;
-                        // s, sp or p functions, or Cartesian d functions
-                        if ((N < N_D) || (0 == use_5d))
-                        {
-                            // allocate memories at the beginning
-                            if (0 == iprim)
-                            {
-                                for (ii = 0; ii < N; ++ ii)
-                                {
-                                    p_basis->nprims[ibasis + ii] = nprims;
 
-                                    size_t bytes_dbl = sizeof(double) * p_basis->nprims[ibasis + ii];
-                                    size_t bytes_int = sizeof(int)    * p_basis->nprims[ibasis + ii];
-
-                                    p_basis->expon[ibasis + ii] = (double *)my_malloc(bytes_dbl);
-                                    p_basis->coef[ibasis + ii]  = (double *)my_malloc(bytes_dbl);
-
-                                    p_basis->lx[ibasis + ii] = (int *)my_malloc(bytes_int);
-                                    p_basis->ly[ibasis + ii] = (int *)my_malloc(bytes_int);
-                                    p_basis->lz[ibasis + ii] = (int *)my_malloc(bytes_int);
-
-                                    p_basis->xbas[ibasis + ii] = p_atom->pos[iatom][0];
-                                    p_basis->ybas[ibasis + ii] = p_atom->pos[iatom][1];
-                                    p_basis->zbas[ibasis + ii] = p_atom->pos[iatom][2];
-                                }
-                            }
-
-                            // assign values for expon, coef, and lx,ly,lz
-                            for (ii = 0; ii < N; ++ ii)
-                            {
-                                p_basis->expon[ibasis + ii][iprim] = expon_1;
-
-                                if (0 == strcmp(cart_type, "SP") && ii > 0) 
-                                {
-                                    p_basis->coef[ibasis + ii][iprim] = coef_2;
-                                }
-                                else
-                                {
-                                    p_basis->coef[ibasis + ii][iprim] = coef_1;
-                                }
-
-                                p_basis->lx[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 0];
-                                p_basis->ly[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 1];
-                                p_basis->lz[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 2];
-                            }
-                        }
-
+                        // Note: rules for converting Cartesian d to spherical harmonic d
                         // Cartesian d function
                         // XY, YZ, ZZ, XZ, (YY,) XX
                         // Spheircal harmonic d function
@@ -527,41 +481,66 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
                         // D 0 = -0.5*XX-0.5*YY+ZZ
                         // D+1 = XZ
                         // D+2 = sqrt(3)/2*(XX-YY)
-                        else if (N_D == N && (1 == use_5d))
+                        // Convert: ZZ->D0, XX->D+2
+
+
+                        int ii;
+                        for (ii = 0; ii < N; ++ ii)
                         {
-                            for (ii = 0; ii < N; ++ ii)
+                            // allocate memories at the beginning
+                            if (0 == iprim)
                             {
-                                if (0 == iprim)
+                                // assign number of primitive basis functions
+                                p_basis->nprims[ibasis + ii] = nprims;
+
+                                // take care of 5d functions
+                                if (use_5d && N_D == N)
                                 {
-                                    // D 0
+                                    // D 0 = -0.5*XX-0.5*YY+ZZ
                                     if      (2 == ii) { p_basis->nprims[ibasis + ii] = nprims * 3; }
-                                    // D+2
+                                    // D+2 = sqrt(3)/2*(XX-YY)
                                     else if (4 == ii) { p_basis->nprims[ibasis + ii] = nprims * 2; }
-                                    // D-2, D-1 or D+1
-                                    else              { p_basis->nprims[ibasis + ii] = nprims; }
-
-                                    size_t bytes_dbl = sizeof(double) * p_basis->nprims[ibasis + ii];
-                                    size_t bytes_int = sizeof(int)    * p_basis->nprims[ibasis + ii];
-
-                                    p_basis->expon[ibasis + ii] = (double *)my_malloc(bytes_dbl);
-                                    p_basis->coef[ibasis + ii]  = (double *)my_malloc(bytes_dbl);
-
-                                    p_basis->lx[ibasis + ii] = (int *)my_malloc(bytes_int);
-                                    p_basis->ly[ibasis + ii] = (int *)my_malloc(bytes_int);
-                                    p_basis->lz[ibasis + ii] = (int *)my_malloc(bytes_int);
-
-                                    p_basis->xbas[ibasis + ii] = p_atom->pos[iatom][0];
-                                    p_basis->ybas[ibasis + ii] = p_atom->pos[iatom][1];
-                                    p_basis->zbas[ibasis + ii] = p_atom->pos[iatom][2];
                                 }
 
-                                p_basis->expon[ibasis + ii][iprim] = expon_1;
+                                // allocate memories
+                                size_t bytes_dbl = sizeof(double) * p_basis->nprims[ibasis + ii];
+                                size_t bytes_int = sizeof(int)    * p_basis->nprims[ibasis + ii];
+
+                                p_basis->expon[ibasis + ii] = (double *)my_malloc(bytes_dbl);
+                                p_basis->coef[ibasis + ii]  = (double *)my_malloc(bytes_dbl);
+
+                                p_basis->lx[ibasis + ii] = (int *)my_malloc(bytes_int);
+                                p_basis->ly[ibasis + ii] = (int *)my_malloc(bytes_int);
+                                p_basis->lz[ibasis + ii] = (int *)my_malloc(bytes_int);
+
+                                // assign centers of basis functions
+                                p_basis->xbas[ibasis + ii] = p_atom->pos[iatom][0];
+                                p_basis->ybas[ibasis + ii] = p_atom->pos[iatom][1];
+                                p_basis->zbas[ibasis + ii] = p_atom->pos[iatom][2];
+                            }
+                        }
+
+                        // assign values for expon, coef, and lx,ly,lz
+                        for (ii = 0; ii < N; ++ ii)
+                        {
+                            // assign exponents
+                            p_basis->expon[ibasis + ii][iprim] = expon_1;
+
+                            // assign coefficients; take care of sp functions
+                            if (0 == strcmp(cart_type, "SP") && ii > 0) {
+                                p_basis->coef[ibasis + ii][iprim] = coef_2;
+                            } else {
                                 p_basis->coef[ibasis + ii][iprim] = coef_1;
+                            }
 
-                                p_basis->lx[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 0];
-                                p_basis->ly[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 1];
-                                p_basis->lz[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 2];
+                            // assign lx,ly,lz
+                            p_basis->lx[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 0];
+                            p_basis->ly[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 1];
+                            p_basis->lz[ibasis + ii][iprim] = ptr_lmn[ii * CART_DIM + 2];
 
+                            // take care of 5d functions
+                            if (use_5d && N_D == N)
+                            {
                                 // D 0 = -0.5*XX-0.5*YY+ZZ
                                 if (2 == ii)
                                 {
