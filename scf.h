@@ -51,10 +51,10 @@ double get_elec_ene(int nbasis, gsl_matrix *D, gsl_matrix *H_core,
                     gsl_matrix *Fock);
 
 // form G matrix
-void form_G(int nbasis, gsl_matrix *D_prev, double *ERI, gsl_matrix *G);
+void form_JK(int nbasis, gsl_matrix *D_prev, double *ERI, gsl_matrix *J, gsl_matrix *K);
 
 // form Fock matrix
-void form_Fock(int nbasis, gsl_matrix *H_core, gsl_matrix *G, gsl_matrix *Fock);
+void form_Fock(int nbasis, gsl_matrix *H_core, gsl_matrix *J, gsl_matrix *K, gsl_matrix *Fock);
 
 // Generalized Wolfsberg-Helmholtz initial guess
 void init_guess_GWH(Basis *p_basis, gsl_matrix *H_core, gsl_matrix *S, gsl_matrix *Fock);

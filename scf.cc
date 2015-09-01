@@ -234,24 +234,34 @@ double get_elec_ene(int nbasis, gsl_matrix *D, gsl_matrix *H_core,
 //===============================
 // form G matrix
 //===============================
-void form_G(int nbasis, gsl_matrix *D_prev, double *ERI, gsl_matrix *G)
+void form_JK(int nbasis, gsl_matrix *D_prev, double *ERI, gsl_matrix *J, gsl_matrix *K)
 {
     for (int mu = 0; mu < nbasis; ++ mu)
     {
-       for (int nu = 0; nu < nbasis; ++ nu)
+        for (int nu = 0; nu <= mu; ++ nu)
         {
-            double val = 0.0;
+            double val_J = 0.0;
+            double val_K = 0.0;
             for (int lam = 0; lam < nbasis; ++ lam)
             {
                 for (int sig = 0; sig < nbasis; ++ sig)
                 {
                     int mnls = ijkl2intindex(mu, nu, lam, sig);
                     int mlns = ijkl2intindex(mu, lam, nu, sig);
-                    val += gsl_matrix_get(D_prev, lam, sig) * 
-                           (ERI[mnls] - 0.5 * ERI[mlns]);
+
+                    double D_ls = gsl_matrix_get(D_prev, lam, sig);
+                    val_J += D_ls * ERI[mnls];
+                    val_K += D_ls * ERI[mlns];
                 }
             }
-            gsl_matrix_set(G, mu, nu, val);
+            gsl_matrix_set(J, mu, nu, val_J);
+            gsl_matrix_set(K, mu, nu, val_K);
+
+            if (nu != mu)
+            {
+                gsl_matrix_set(J, nu, mu, val_J);
+                gsl_matrix_set(K, nu, mu, val_K);
+            }
         }
     }
 }
@@ -259,14 +269,15 @@ void form_G(int nbasis, gsl_matrix *D_prev, double *ERI, gsl_matrix *G)
 //===============================
 // form Fock matrix
 //===============================
-void form_Fock(int nbasis, gsl_matrix *H_core, gsl_matrix *G, gsl_matrix *Fock)
+void form_Fock(int nbasis, gsl_matrix *H_core, gsl_matrix *J, gsl_matrix *K, gsl_matrix *Fock)
 {
     for (int mu = 0; mu < nbasis; ++ mu)
     {
         for (int nu = 0; nu < nbasis; ++ nu)
         {
             gsl_matrix_set(Fock, mu, nu, 
-                gsl_matrix_get(H_core, mu, nu) + gsl_matrix_get(G, mu, nu));
+                gsl_matrix_get(H_core, mu, nu) + gsl_matrix_get(J, mu, nu) 
+                - 0.5 * gsl_matrix_get(K, mu, nu));
         }
     }
 }

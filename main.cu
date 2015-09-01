@@ -467,12 +467,15 @@ int main(int argc, char* argv[])
 
     // matrices, vector and variables to be used in SCF
     gsl_matrix *D_prev = gsl_matrix_alloc(p_basis->num, p_basis->num);
-    gsl_matrix *G      = gsl_matrix_alloc(p_basis->num, p_basis->num);
     gsl_matrix *Fock   = gsl_matrix_alloc(p_basis->num, p_basis->num);
     gsl_matrix *Coef   = gsl_matrix_alloc(p_basis->num, p_basis->num);
     gsl_matrix *D      = gsl_matrix_alloc(p_basis->num, p_basis->num);
     gsl_vector *emo    = gsl_vector_alloc(p_basis->num);
     double ene_elec, ene_total, ene_prev;
+
+    // Coulomb(J) and exchange(K) matrices
+    gsl_matrix *J = gsl_matrix_alloc(p_basis->num, p_basis->num);
+    gsl_matrix *K = gsl_matrix_alloc(p_basis->num, p_basis->num);
 
     // initialize density matrix
     gsl_matrix_set_zero(D_prev);
@@ -537,13 +540,15 @@ int main(int argc, char* argv[])
         //direct_form_G(p_basis, D_prev, Q, G);
 
         // use GPU-calculated two-electron integrals
-        form_G(p_basis->num, D_prev, h_eri, G);
+        form_JK(p_basis->num, D_prev, h_eri, J, K);
 
 #ifdef DEBUG
+        printf("J:\n"); my_print_matrix(J);
+        printf("K:\n"); my_print_matrix(K);
         printf("G:\n"); my_print_matrix(G);
 #endif
 
-        form_Fock(p_basis->num, H_core, G, Fock);
+        form_Fock(p_basis->num, H_core, J, K, Fock);
 
         // DIIS
         if (iter > 0)
@@ -649,11 +654,13 @@ int main(int argc, char* argv[])
     gsl_matrix_free(H_core);
     gsl_matrix_free(S_invsqrt);
     gsl_matrix_free(D_prev);
-    gsl_matrix_free(G);
     gsl_matrix_free(Fock);
     gsl_matrix_free(Coef);
     gsl_matrix_free(D);
     gsl_vector_free(emo);
+
+    gsl_matrix_free(J);
+    gsl_matrix_free(K);
 
     // free arrays for geometry
     for (int iatom = 0; iatom < p_atom->num; ++ iatom)
