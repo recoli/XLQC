@@ -235,6 +235,8 @@ int main(int argc, char* argv[])
     double *h_mat_K = (double *)my_malloc(n_CI_bytes);
     double *h_mat_Q = (double *)my_malloc(n_CI_bytes);
 
+    double *h_mat_J_PI = (double *)my_malloc(n_PI_bytes);
+
     // fill arrays on host
     // index_prim counts primitive integrals
     // index_contr counts contracted integrals
@@ -316,9 +318,10 @@ int main(int argc, char* argv[])
 
     double *dev_eri = NULL;
     double *dev_mat_D = NULL;
-    double *dev_mat_J = NULL;
     double *dev_mat_K = NULL;
     double *dev_mat_Q = NULL;
+
+    double *dev_mat_J_PI = NULL;
 
     // allocate memories for arrays on device
     fprintf(stdout, "Mem_on_Device = %zu MB\n",
@@ -370,12 +373,13 @@ int main(int argc, char* argv[])
 
     cudaMalloc((void**)&dev_eri, n_ERI_bytes);
     cudaMalloc((void**)&dev_mat_D, n_CI_bytes);
-    cudaMalloc((void**)&dev_mat_J, n_CI_bytes);
     cudaMalloc((void**)&dev_mat_K, n_CI_bytes);
     cudaMalloc((void**)&dev_mat_Q, n_CI_bytes);
 
+    cudaMalloc((void**)&dev_mat_J_PI, n_PI_bytes);
+
     if(dev_eri == NULL || dev_start_contr == NULL || dev_end_contr == NULL ||
-       dev_mat_D == NULL || dev_mat_J == NULL || dev_mat_K == NULL || dev_mat_Q == NULL)
+       dev_mat_D == NULL || dev_mat_J_PI == NULL || dev_mat_K == NULL || dev_mat_Q == NULL)
     {
         fprintf(stderr, "Error: cannot cudaMalloc for dev_eri!\n");
         exit(1);
@@ -412,28 +416,9 @@ int main(int argc, char* argv[])
 
     // configure a two dimensional grid as well
     dim3 grid_size;
-    grid_size.x = n_combi / block_size.x + (n_combi % block_size.x ? 1 : 0);
-    grid_size.y = n_combi / block_size.y + (n_combi % block_size.y ? 1 : 0);
+    //grid_size.x = n_combi / block_size.x + (n_combi % block_size.x ? 1 : 0);
+    //grid_size.y = n_combi / block_size.y + (n_combi % block_size.y ? 1 : 0);
 
-
-    /*
-    // launch the kernel to calculate two-electron integrals on GPU
-    if (use_dp) {
-        cuda_rys_eri_2d_dp<<<grid_size, block_size>>>
-            (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
-             dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
-             n_combi, dev_start_contr, dev_end_contr, dev_eri);
-    } else {
-        cuda_rys_eri_2d<<<grid_size, block_size>>>
-            (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
-             dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
-             n_combi, dev_start_contr, dev_end_contr, dev_eri);
-    }
-
-
-    // copy the results back to host
-    my_cuda_safe(cudaMemcpy(h_eri, dev_eri, n_ERI_bytes, cudaMemcpyDeviceToHost),"mem_eri"); 
-    */
 
     t0 = clock();
     time_in_sec = (t0 - t1) / (double)CLOCKS_PER_SEC;
@@ -522,14 +507,10 @@ int main(int argc, char* argv[])
             "Iter", "E_total", "delta_E", "rms_D", "delta_DIIS");
 
 
-    /*
-    // Q: sqrt(ab|ab) for prescreening of two-electron integrals
-    gsl_matrix *Q = gsl_matrix_alloc(p_basis->num, p_basis->num);
-    form_Q(p_basis, Q);
-    */
+    // mat_Q: sqrt(ab|ab) for prescreening of two-electron integrals
     for (int a = 0; a < p_basis->num; ++ a) {
         for (int b = 0; b <= a; ++ b) {
-			h_mat_Q[ij2intindex(a,b)] = calc_int_eri_rys(p_basis, a, b, a, b);
+            h_mat_Q[ij2intindex(a,b)] = calc_int_eri_rys(p_basis, a, b, a, b);
         }
     }
 
@@ -552,11 +533,6 @@ int main(int argc, char* argv[])
         // C = S^-1/2 * C'
         // compute new density matrix
 
-        //form_G(p_basis->num, D_prev, ERI, G);
-        //direct_form_G(p_basis, D_prev, Q, G);
-
-        // use GPU-calculated two-electron integrals
-        //form_JK(p_basis->num, D_prev, h_eri, J, K);
 
 
         // timer for J-matrix
@@ -572,21 +548,32 @@ int main(int argc, char* argv[])
         }
 
         my_cuda_safe(cudaMemcpy(dev_mat_D, h_mat_D, n_CI_bytes, cudaMemcpyHostToDevice),"mem_D");
-    
 
-        // still use 1T1CI
-        grid_size.x = n_combi / block_size.x + (n_combi % block_size.x ? 1 : 0);
+
+        // use 1T1PI for J-matrix
+        grid_size.x = n_prim_combi / block_size.x + (n_prim_combi % block_size.x ? 1 : 0);
         grid_size.y = 1;
     
-        cuda_mat_J_CI<<<grid_size, block_size>>>
+        cuda_mat_J_PI<<<grid_size, block_size>>>
             (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
              dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
-             n_combi, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_J, dev_mat_Q);
+             n_combi, n_prim_combi, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_J_PI, dev_mat_Q);
 
-        my_cuda_safe(cudaMemcpy(h_mat_J, dev_mat_J, n_CI_bytes, cudaMemcpyDeviceToHost),"mem_J");
+        my_cuda_safe(cudaMemcpy(h_mat_J_PI, dev_mat_J_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_J_PI");
+
+        for (int idx_i = 0; idx_i < n_combi; ++ idx_i) 
+        {
+            h_mat_J[idx_i] = 0.0;
+            int start_i = h_start_contr[idx_i];
+            int end_i   = h_end_contr[idx_i];
+            for (int i = start_i; i <= end_i; ++ i) 
+            {
+                h_mat_J[idx_i] += h_mat_J_PI[i];
+            }
+        }
 
 
-
+        // 1T1CI for K-matrix
         grid_size.x = p_basis->num;
         grid_size.y = p_basis->num;
 

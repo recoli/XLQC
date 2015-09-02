@@ -73,3 +73,10 @@ __global__ void cuda_mat_K_CI(double *xa, double *ya, double *za,
                               int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
                               int n_basis, int *start_contr, int *end_contr, 
                               double *mat_D, double *mat_K, double *mat_Q);
+
+__global__ void cuda_mat_J_PI(double *xa, double *ya, double *za, 
+                              int *la, int *ma, int *na, double *aexps, double *acoef, 
+                              double *xb, double *yb, double *zb, 
+                              int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
+                              int n_combi, int n_prim_combi, int *start_contr, int *end_contr, 
+                              double *mat_D, double *mat_J_PI, double *mat_Q);
