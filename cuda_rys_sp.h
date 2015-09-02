@@ -32,6 +32,7 @@
 
 void my_cuda_safe(cudaError_t err, std::string word);
 
+__device__ int cuda_ij2intindex(int i, int j);
 __device__ int cuda_fact(int n);
 __device__ int cuda_binomial(int a, int b);
 __device__ void cuda_Roots(int n, float X, float roots[], float weights[]);
@@ -65,3 +66,10 @@ __global__ void cuda_mat_J_CI(double *xa, double *ya, double *za,
                               int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
                               int n_combi, int *start_contr, int *end_contr, 
                               double *mat_D, double *mat_J);
+
+__global__ void cuda_mat_K_CI(double *xa, double *ya, double *za, 
+                              int *la, int *ma, int *na, double *aexps, double *acoef, 
+                              double *xb, double *yb, double *zb, 
+                              int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
+                              int n_basis, int *start_contr, int *end_contr, 
+                              double *mat_D, double *mat_K);

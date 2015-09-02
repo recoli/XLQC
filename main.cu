@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
     // use spherical harmonic d function?
     const int use_5d = 1;
     // use double precision?
-    const int use_dp = 0;
+    //const int use_dp = 0;
 
     Atom   *p_atom   = (Atom *)my_malloc(sizeof(Atom) * 1);
     Basis  *p_basis  = (Basis *)my_malloc(sizeof(Basis) * 1);
@@ -232,6 +232,7 @@ int main(int argc, char* argv[])
     double *h_eri = (double *)my_malloc(n_ERI_bytes);
     double *h_mat_D = (double *)my_malloc(n_CI_bytes);
     double *h_mat_J = (double *)my_malloc(n_CI_bytes);
+    double *h_mat_K = (double *)my_malloc(n_CI_bytes);
 
     // fill arrays on host
     // index_prim counts primitive integrals
@@ -315,6 +316,7 @@ int main(int argc, char* argv[])
     double *dev_eri = NULL;
     double *dev_mat_D = NULL;
     double *dev_mat_J = NULL;
+    double *dev_mat_K = NULL;
 
     // allocate memories for arrays on device
     fprintf(stdout, "Mem_on_Device = %zu MB\n",
@@ -367,9 +369,10 @@ int main(int argc, char* argv[])
     cudaMalloc((void**)&dev_eri, n_ERI_bytes);
     cudaMalloc((void**)&dev_mat_D, n_CI_bytes);
     cudaMalloc((void**)&dev_mat_J, n_CI_bytes);
+    cudaMalloc((void**)&dev_mat_K, n_CI_bytes);
 
     if(dev_eri == NULL || dev_start_contr == NULL || dev_end_contr == NULL ||
-        dev_mat_D == NULL || dev_mat_J == NULL)
+        dev_mat_D == NULL || dev_mat_J == NULL || dev_mat_K == NULL)
     {
         fprintf(stderr, "Error: cannot cudaMalloc for dev_eri!\n");
         exit(1);
@@ -410,6 +413,7 @@ int main(int argc, char* argv[])
     grid_size.y = n_combi / block_size.y + (n_combi % block_size.y ? 1 : 0);
 
 
+    /*
     // launch the kernel to calculate two-electron integrals on GPU
     if (use_dp) {
         cuda_rys_eri_2d_dp<<<grid_size, block_size>>>
@@ -426,10 +430,11 @@ int main(int argc, char* argv[])
 
     // copy the results back to host
     my_cuda_safe(cudaMemcpy(h_eri, dev_eri, n_ERI_bytes, cudaMemcpyDeviceToHost),"mem_eri"); 
+    */
 
     t0 = clock();
     time_in_sec = (t0 - t1) / (double)CLOCKS_PER_SEC;
-    time_txt += "Time_2e_GPU   = " + std::to_string(time_in_sec) + " sec\n";
+    //time_txt += "Time_2e_GPU   = " + std::to_string(time_in_sec) + " sec\n";
     time_total += time_in_sec;
 
 
@@ -541,10 +546,7 @@ int main(int argc, char* argv[])
         //direct_form_G(p_basis, D_prev, Q, G);
 
         // use GPU-calculated two-electron integrals
-        form_JK(p_basis->num, D_prev, h_eri, J, K);
-
-
-
+        //form_JK(p_basis->num, D_prev, h_eri, J, K);
 
 
         // timer for J-matrix
@@ -563,7 +565,7 @@ int main(int argc, char* argv[])
     
 
         // still use 1T1CI
-        //grid_size.x = n_combi / block_size.x + (n_combi % block_size.x ? 1 : 0);
+        grid_size.x = n_combi / block_size.x + (n_combi % block_size.x ? 1 : 0);
         grid_size.y = 1;
     
         cuda_mat_J_CI<<<grid_size, block_size>>>
@@ -573,20 +575,33 @@ int main(int argc, char* argv[])
 
         my_cuda_safe(cudaMemcpy(h_mat_J, dev_mat_J, n_CI_bytes, cudaMemcpyDeviceToHost),"mem_J");
 
-        // use J-matrix from GPU
+
+
+        grid_size.x = p_basis->num;
+        grid_size.y = p_basis->num;
+
+        cuda_mat_K_CI<<<grid_size, block_size>>>
+            (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
+             dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
+             p_basis->num, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_K);
+
+        my_cuda_safe(cudaMemcpy(h_mat_K, dev_mat_K, n_CI_bytes, cudaMemcpyDeviceToHost),"mem_K");
+
+
+        // use J and K matrix from GPU
         for (int a = 0; a < p_basis->num; ++ a) {
-            for (int b = 0; b <= a; ++ b) {
+            for (int b = 0; b < p_basis->num; ++ b) {
                 double Jab = h_mat_J[ij2intindex(a,b)];
+                double Kab = h_mat_K[ij2intindex(a,b)];
                 gsl_matrix_set(J,a,b,Jab);
-                if (a != b) { gsl_matrix_set(J,b,a,Jab); }
+                gsl_matrix_set(K,a,b,Kab);
             }
         }
+
 
         t3 = clock();
         time_in_sec = (t3 - t2) / (double)CLOCKS_PER_SEC;
         time_mat_J += time_in_sec;
-
-
 
 
 
@@ -757,7 +772,7 @@ int main(int argc, char* argv[])
     std::cout << time_txt;
     std::cout << "Total time used " << time_total << " sec\n";
 
-    std::cout << "Mat_J time used " << time_mat_J << " sec\n";
+    std::cout << "MatJK time used " << time_mat_J << " sec\n";
 
 
     //====== the end of program ========

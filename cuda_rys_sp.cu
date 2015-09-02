@@ -25,6 +25,7 @@
 #include <string>
 
 #include "cuda_rys_sp.h"
+#include "cuda_rys_dp.h"
 #include "typedef.h"
 
 void my_cuda_safe(cudaError_t err, std::string word)
@@ -43,6 +44,12 @@ void my_cuda_safe(cudaError_t err, std::string word)
             exit(-1);
         }
     } 
+}
+
+__device__ int cuda_ij2intindex(int i, int j)
+{
+    if (i < j) { return cuda_ij2intindex(j, i); }
+    return i * (i + 1) / 2 + j;
 }
 
 __device__ int cuda_fact(int n){
@@ -1643,6 +1650,100 @@ __global__ void cuda_mat_J_CI(double *xa, double *ya, double *za,
         for (int t = 0; t < BLOCKSIZE; ++ t)
         {
             mat_J[idx_i] += elem_J_CI[thread_i][t];
+        }
+    }
+}
+
+
+__global__ void cuda_mat_K_CI(double *xa, double *ya, double *za, 
+                              int *la, int *ma, int *na, double *aexps, double *acoef, 
+                              double *xb, double *yb, double *zb, 
+                              int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
+                              int n_basis, int *start_contr, int *end_contr, 
+                              double *mat_D, double *mat_K)
+{
+    __shared__ double elem_K_CI[BLOCKSIZE][BLOCKSIZE];
+
+    // do the usual computation separately in each dimension:
+    int idx_i = blockIdx.x;
+    int idx_k = blockIdx.y;
+
+    int thread_j = threadIdx.x;
+    int thread_l = threadIdx.y;
+
+    // avoid accessing out of bounds elements
+    if (idx_i < idx_k) { return; }
+    int idx_ik = cuda_ij2intindex(idx_i, idx_k);
+
+    // initialize shared array
+    elem_K_CI[thread_j][thread_l] = 0.0;
+
+    for (int idx_j = thread_j; idx_j < n_basis; idx_j += BLOCKSIZE)
+    {
+        int idx_ij = cuda_ij2intindex(idx_i, idx_j);
+
+        int start_ij = start_contr[idx_ij];
+        int end_ij   = end_contr[idx_ij];
+ 
+        float xaij[3] = {(float)xa[idx_ij],(float)ya[idx_ij],(float)za[idx_ij]};
+        float xbij[3] = {(float)xb[idx_ij],(float)yb[idx_ij],(float)zb[idx_ij]};
+
+        for (int idx_l = thread_l; idx_l < n_basis; idx_l += BLOCKSIZE)
+        {
+            int idx_kl = cuda_ij2intindex(idx_k, idx_l);
+
+            int start_kl = start_contr[idx_kl];
+            int end_kl   = end_contr[idx_kl];
+         
+            float xakl[3] = {(float)xa[idx_kl],(float)ya[idx_kl],(float)za[idx_kl]};
+            float xbkl[3] = {(float)xb[idx_kl],(float)yb[idx_kl],(float)zb[idx_kl]};
+         
+            double this_eri = 0.0;
+            for (int ij = start_ij; ij <= end_ij; ++ ij)
+            {
+                int laij[3] = {la[ij],ma[ij],na[ij]};
+                int lbij[3] = {lb[ij],mb[ij],nb[ij]};
+                float coef_aij = (float)acoef[ij];
+                float exps_aij = (float)aexps[ij];
+                float coef_bij = (float)bcoef[ij];
+                float exps_bij = (float)bexps[ij];
+         
+                for (int kl = start_kl; kl <= end_kl; ++ kl)
+                {
+                    int lakl[3] = {la[kl],ma[kl],na[kl]};
+                    int lbkl[3] = {lb[kl],mb[kl],nb[kl]};
+                    float coef_akl = (float)acoef[kl];
+                    float exps_akl = (float)aexps[kl];
+                    float coef_bkl = (float)bcoef[kl];
+                    float exps_bkl = (float)bexps[kl];
+         
+                    this_eri += cuda_rys_coulomb_repulsion(
+                                xaij[0],xaij[1],xaij[2],coef_aij,
+                                laij[0],laij[1],laij[2],exps_aij,
+                                xbij[0],xbij[1],xbij[2],coef_bij,
+                                lbij[0],lbij[1],lbij[2],exps_bij,
+                                xakl[0],xakl[1],xakl[2],coef_akl,
+                                lakl[0],lakl[1],lakl[2],exps_akl,
+                                xbkl[0],xbkl[1],xbkl[2],coef_bkl,
+                                lbkl[0],lbkl[1],lbkl[2],exps_bkl);
+                }
+            }
+            // NOTE: mat_D already contains the 2.0 factor for non-diagonal elements
+            // but we do not need this factor for K-matrix
+            int idx_jl = cuda_ij2intindex(idx_j, idx_l);
+            elem_K_CI[thread_j][thread_l] += this_eri * mat_D[idx_jl] * (idx_j == idx_l ? 1.0 : 0.5);
+        }
+    }
+
+    __syncthreads();
+
+    if (0 == thread_j && 0 == thread_l)
+    {
+        mat_K[idx_ik] = 0.0; 
+        for (int t1 = 0; t1 < BLOCKSIZE; ++ t1) {
+            for (int t2 = 0; t2 < BLOCKSIZE; ++ t2) {
+                mat_K[idx_ik] += elem_K_CI[t1][t2];
+            }
         }
     }
 }
