@@ -20,6 +20,8 @@
 // Cartesian dimension
 #define CART_DIM 3
 
+#define BLOCKSIZE 8
+
 // number of basis functions
 #define N_S   1
 #define N_SP  4

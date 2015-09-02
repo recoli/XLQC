@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
 
 
     // count number of primitive integrals in a <bra| or |ket>
-    int count_prim = 0;
+    int n_prim_combi = 0;
     for (int a = 0; a < p_basis->num; ++ a)
     {
         int lena = p_basis->nprims[a];
@@ -187,7 +187,7 @@ int main(int argc, char* argv[])
         
             for (int i = 0; i < lena; ++ i)
                 for (int j = 0; j < lenb; ++ j)
-                    ++ count_prim;
+                    ++ n_prim_combi;
         }
     }
 
@@ -197,8 +197,8 @@ int main(int argc, char* argv[])
     // ERI: electron repulsion integrals
     size_t n_CI_bytes     = sizeof(double) * n_combi;
     size_t n_CI_bytes_int = sizeof(int)    * n_combi;
-    size_t n_PI_bytes     = sizeof(double) * count_prim;
-    size_t n_PI_bytes_int = sizeof(int)    * count_prim;
+    size_t n_PI_bytes     = sizeof(double) * n_prim_combi;
+    size_t n_PI_bytes_int = sizeof(int)    * n_prim_combi;
     size_t n_ERI_bytes    = sizeof(double) * n_eri;
 
     double *h_xa = (double *)my_malloc(n_CI_bytes);
@@ -226,11 +226,13 @@ int main(int argc, char* argv[])
     int *h_end_contr   = (int *)my_malloc(n_CI_bytes_int);
 
     double *h_eri = (double *)my_malloc(n_ERI_bytes);
+    double *h_mat_D = (double *)my_malloc(n_CI_bytes);
+    double *h_mat_J = (double *)my_malloc(n_CI_bytes);
 
     // fill arrays on host
-    // index counts primitive integrals
+    // index_prim counts primitive integrals
     // index_contr counts contracted integrals
-    int index = 0;
+    int index_prim = 0;
     int index_contr = 0;
 
     for (int a = 0; a < p_basis->num; ++ a)
@@ -240,7 +242,7 @@ int main(int argc, char* argv[])
         {
             int lenb = p_basis->nprims[b];
 
-            h_start_contr[index_contr] = index;
+            h_start_contr[index_contr] = index_prim;
 
             h_xa[index_contr] = p_basis->xbas[a];
             h_ya[index_contr] = p_basis->ybas[a];
@@ -255,31 +257,31 @@ int main(int argc, char* argv[])
                 for (int j = 0; j < lenb; ++ j)
                 {
                     // note that 'anorm' is absorbed into 'acoef'
-                    h_aexps[index] = p_basis->expon[a][i];
-                    h_acoef[index] = p_basis->coef[a][i] * p_basis->norm[a][i];
+                    h_aexps[index_prim] = p_basis->expon[a][i];
+                    h_acoef[index_prim] = p_basis->coef[a][i] * p_basis->norm[a][i];
 
                     // note that 'bnorm' is absorbed into 'bcoef'
-                    h_bexps[index] = p_basis->expon[b][j];
-                    h_bcoef[index] = p_basis->coef[b][j] * p_basis->norm[b][j];
+                    h_bexps[index_prim] = p_basis->expon[b][j];
+                    h_bcoef[index_prim] = p_basis->coef[b][j] * p_basis->norm[b][j];
 
-                    h_la[index] = p_basis->lx[a][i];
-                    h_ma[index] = p_basis->ly[a][i];
-                    h_na[index] = p_basis->lz[a][i];
+                    h_la[index_prim] = p_basis->lx[a][i];
+                    h_ma[index_prim] = p_basis->ly[a][i];
+                    h_na[index_prim] = p_basis->lz[a][i];
 
-                    h_lb[index] = p_basis->lx[b][j];
-                    h_mb[index] = p_basis->ly[b][j];
-                    h_nb[index] = p_basis->lz[b][j];
+                    h_lb[index_prim] = p_basis->lx[b][j];
+                    h_mb[index_prim] = p_basis->ly[b][j];
+                    h_nb[index_prim] = p_basis->lz[b][j];
 
-                    ++ index;
+                    ++ index_prim;
                 }
             }
 
-            h_end_contr[index_contr] = index - 1;
+            h_end_contr[index_contr] = index_prim - 1;
 
             ++ index_contr;
         }
     }
-    fprintf(stdout, "Num_Prim_Combi  = %d (%d)\n", index, count_prim);
+    fprintf(stdout, "Num_Prim_Combi  = %d (%d)\n", index_prim, n_prim_combi);
     fprintf(stdout, "Num_Contr_Combi = %d (%d)\n", index_contr, n_combi);
 
     t1 = clock();
@@ -307,6 +309,8 @@ int main(int argc, char* argv[])
     int *dev_end_contr   = NULL;
 
     double *dev_eri = NULL;
+    double *dev_mat_D = NULL;
+    double *dev_mat_J = NULL;
 
     // allocate memories for arrays on device
     fprintf(stdout, "Mem_on_Device = %zu MB\n",
@@ -357,8 +361,11 @@ int main(int argc, char* argv[])
     cudaMalloc((void**)&dev_end_contr,   n_CI_bytes_int);
 
     cudaMalloc((void**)&dev_eri, n_ERI_bytes);
+    cudaMalloc((void**)&dev_mat_D, n_CI_bytes);
+    cudaMalloc((void**)&dev_mat_J, n_CI_bytes);
 
-    if(dev_eri == NULL || dev_start_contr == NULL || dev_end_contr == NULL)
+    if(dev_eri == NULL || dev_start_contr == NULL || dev_end_contr == NULL ||
+        dev_mat_D == NULL || dev_mat_J == NULL)
     {
         fprintf(stderr, "Error: cannot cudaMalloc for dev_eri!\n");
         exit(1);
@@ -395,8 +402,8 @@ int main(int argc, char* argv[])
 
     // create 8x8 thread blocks
     dim3 block_size;
-    block_size.x = 8;
-    block_size.y = 8;
+    block_size.x = BLOCKSIZE;
+    block_size.y = BLOCKSIZE;
 
     // configure a two dimensional grid as well
     dim3 grid_size;
@@ -541,6 +548,43 @@ int main(int argc, char* argv[])
 
         // use GPU-calculated two-electron integrals
         form_JK(p_basis->num, D_prev, h_eri, J, K);
+
+
+
+        // NOTE: h_mat_D and dev_mat_D already contains the 2.0 factor for non-diagonal elements
+        // This is convenient for J-matrix formation
+        for (int a = 0; a < p_basis->num; ++ a) {
+            for (int b = 0; b <= a; ++ b) {
+                h_mat_D[ij2intindex(a,b)] = gsl_matrix_get(D_prev,a,b) * (a == b ? 1.0 : 2.0);
+            }
+        }
+
+        my_cuda_safe(cudaMemcpy(dev_mat_D, h_mat_D, n_CI_bytes, cudaMemcpyHostToDevice),"mem_D");
+    
+        // still use 1T1CI
+        //grid_size.x = n_combi / block_size.x + (n_combi % block_size.x ? 1 : 0);
+        grid_size.y = 1;
+    
+        cuda_mat_J_CI<<<grid_size, block_size>>>
+            (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
+             dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
+             n_combi, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_J);
+
+        my_cuda_safe(cudaMemcpy(h_mat_J, dev_mat_J, n_CI_bytes, cudaMemcpyDeviceToHost),"mem_J");
+
+        // use J-matrix from GPU
+        for (int a = 0; a < p_basis->num; ++ a) {
+            for (int b = 0; b <= a; ++ b) {
+                double Jab = h_mat_J[ij2intindex(a,b)];
+                gsl_matrix_set(J,a,b,Jab);
+                if (a != b) { gsl_matrix_set(J,b,a,Jab); }
+            }
+        }
+
+
+
+
+
 
 #ifdef DEBUG
         printf("J:\n"); my_print_matrix(J);

@@ -25,6 +25,7 @@
 #include <string>
 
 #include "cuda_rys_sp.h"
+#include "typedef.h"
 
 void my_cuda_safe(cudaError_t err, std::string word)
 {
@@ -1561,4 +1562,87 @@ __global__ void cuda_rys_eri_2d(double *xa, double *ya, double *za,
         }
     }
     eri[index] = this_eri;
+}
+
+
+__global__ void cuda_mat_J_CI(double *xa, double *ya, double *za, 
+                              int *la, int *ma, int *na, double *aexps, double *acoef, 
+                              double *xb, double *yb, double *zb, 
+                              int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
+                              int n_combi, int *start_contr, int *end_contr, 
+                              double *mat_D, double *mat_J)
+{
+    __shared__ double elem_J_CI[BLOCKSIZE][BLOCKSIZE];
+
+    int thread_i = threadIdx.x;
+    int thread_k = threadIdx.y;
+
+    // do the usual computation separately in each dimension:
+    int idx_i = blockIdx.x * blockDim.x + threadIdx.x;
+    int this_idx_k = blockIdx.y * blockDim.y + threadIdx.y;
+
+    // avoid accessing out of bounds elements
+    if (idx_i >= n_combi || this_idx_k >= BLOCKSIZE) { return; }
+
+    // initialize shared array
+    elem_J_CI[thread_i][thread_k] = 0.0;
+
+    int start_i = start_contr[idx_i];
+    int end_i   = end_contr[idx_i];
+
+    float xai[3] = {(float)xa[idx_i],(float)ya[idx_i],(float)za[idx_i]};
+    float xbi[3] = {(float)xb[idx_i],(float)yb[idx_i],(float)zb[idx_i]};
+
+    for (int idx_k = thread_k; idx_k < n_combi; idx_k += BLOCKSIZE)
+    {
+        int start_k = start_contr[idx_k];
+        int end_k   = end_contr[idx_k];
+
+        float xak[3] = {(float)xa[idx_k],(float)ya[idx_k],(float)za[idx_k]};
+        float xbk[3] = {(float)xb[idx_k],(float)yb[idx_k],(float)zb[idx_k]};
+
+        double this_eri = 0.0;
+        for (int i = start_i; i <= end_i; ++ i)
+        {
+            int lai[3] = {la[i],ma[i],na[i]};
+            int lbi[3] = {lb[i],mb[i],nb[i]};
+            float coef_ai = (float)acoef[i];
+            float exps_ai = (float)aexps[i];
+            float coef_bi = (float)bcoef[i];
+            float exps_bi = (float)bexps[i];
+
+            for (int k = start_k; k <= end_k; ++ k)
+            {
+                int lak[3] = {la[k],ma[k],na[k]};
+                int lbk[3] = {lb[k],mb[k],nb[k]};
+                float coef_ak = (float)acoef[k];
+                float exps_ak = (float)aexps[k];
+                float coef_bk = (float)bcoef[k];
+                float exps_bk = (float)bexps[k];
+
+                this_eri += cuda_rys_coulomb_repulsion(
+                            xai[0],xai[1],xai[2],coef_ai,
+                            lai[0],lai[1],lai[2],exps_ai,
+                            xbi[0],xbi[1],xbi[2],coef_bi,
+                            lbi[0],lbi[1],lbi[2],exps_bi,
+                            xak[0],xak[1],xak[2],coef_ak,
+                            lak[0],lak[1],lak[2],exps_ak,
+                            xbk[0],xbk[1],xbk[2],coef_bk,
+                            lbk[0],lbk[1],lbk[2],exps_bk);
+            }
+        }
+        // NOTE: mat_D already contains the 2.0 factor for non-diagonal elements
+        elem_J_CI[thread_i][thread_k] += this_eri * mat_D[idx_k];
+    }
+
+    __syncthreads();
+
+    if (0 == thread_k)
+    {
+        mat_J[idx_i] = 0.0; 
+        for (int t = 0; t < BLOCKSIZE; ++ t)
+        {
+            mat_J[idx_i] += elem_J_CI[thread_i][t];
+        }
+    }
 }

@@ -58,3 +58,10 @@ __global__ void cuda_rys_eri_2d(double *xa, double *ya, double *za,
                                 double *xb, double *yb, double *zb, 
                                 int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
                                 int n_combi, int *start_contr, int *end_contr, double *eri);
+
+__global__ void cuda_mat_J_CI(double *xa, double *ya, double *za, 
+                              int *la, int *ma, int *na, double *aexps, double *acoef, 
+                              double *xb, double *yb, double *zb, 
+                              int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
+                              int n_combi, int *start_contr, int *end_contr, 
+                              double *mat_D, double *mat_J);
