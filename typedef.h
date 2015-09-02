@@ -21,6 +21,7 @@
 #define CART_DIM 3
 
 #define BLOCKSIZE 8
+#define SCREEN_THR 1.0e-11
 
 // number of basis functions
 #define N_S   1

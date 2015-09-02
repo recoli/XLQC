@@ -233,6 +233,7 @@ int main(int argc, char* argv[])
     double *h_mat_D = (double *)my_malloc(n_CI_bytes);
     double *h_mat_J = (double *)my_malloc(n_CI_bytes);
     double *h_mat_K = (double *)my_malloc(n_CI_bytes);
+    double *h_mat_Q = (double *)my_malloc(n_CI_bytes);
 
     // fill arrays on host
     // index_prim counts primitive integrals
@@ -317,6 +318,7 @@ int main(int argc, char* argv[])
     double *dev_mat_D = NULL;
     double *dev_mat_J = NULL;
     double *dev_mat_K = NULL;
+    double *dev_mat_Q = NULL;
 
     // allocate memories for arrays on device
     fprintf(stdout, "Mem_on_Device = %zu MB\n",
@@ -370,9 +372,10 @@ int main(int argc, char* argv[])
     cudaMalloc((void**)&dev_mat_D, n_CI_bytes);
     cudaMalloc((void**)&dev_mat_J, n_CI_bytes);
     cudaMalloc((void**)&dev_mat_K, n_CI_bytes);
+    cudaMalloc((void**)&dev_mat_Q, n_CI_bytes);
 
     if(dev_eri == NULL || dev_start_contr == NULL || dev_end_contr == NULL ||
-        dev_mat_D == NULL || dev_mat_J == NULL || dev_mat_K == NULL)
+       dev_mat_D == NULL || dev_mat_J == NULL || dev_mat_K == NULL || dev_mat_Q == NULL)
     {
         fprintf(stderr, "Error: cannot cudaMalloc for dev_eri!\n");
         exit(1);
@@ -524,6 +527,13 @@ int main(int argc, char* argv[])
     gsl_matrix *Q = gsl_matrix_alloc(p_basis->num, p_basis->num);
     form_Q(p_basis, Q);
     */
+    for (int a = 0; a < p_basis->num; ++ a) {
+        for (int b = 0; b <= a; ++ b) {
+			h_mat_Q[ij2intindex(a,b)] = calc_int_eri_rys(p_basis, a, b, a, b);
+        }
+    }
+
+    my_cuda_safe(cudaMemcpy(dev_mat_Q, h_mat_Q, n_CI_bytes, cudaMemcpyHostToDevice),"mem_Q");
 
     t1 = clock();
     time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
@@ -571,7 +581,7 @@ int main(int argc, char* argv[])
         cuda_mat_J_CI<<<grid_size, block_size>>>
             (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
              dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
-             n_combi, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_J);
+             n_combi, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_J, dev_mat_Q);
 
         my_cuda_safe(cudaMemcpy(h_mat_J, dev_mat_J, n_CI_bytes, cudaMemcpyDeviceToHost),"mem_J");
 
@@ -583,7 +593,7 @@ int main(int argc, char* argv[])
         cuda_mat_K_CI<<<grid_size, block_size>>>
             (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
              dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
-             p_basis->num, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_K);
+             p_basis->num, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_K, dev_mat_Q);
 
         my_cuda_safe(cudaMemcpy(h_mat_K, dev_mat_K, n_CI_bytes, cudaMemcpyDeviceToHost),"mem_K");
 

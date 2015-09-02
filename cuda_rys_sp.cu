@@ -1577,7 +1577,7 @@ __global__ void cuda_mat_J_CI(double *xa, double *ya, double *za,
                               double *xb, double *yb, double *zb, 
                               int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
                               int n_combi, int *start_contr, int *end_contr, 
-                              double *mat_D, double *mat_J)
+                              double *mat_D, double *mat_J, double *mat_Q)
 {
     __shared__ double elem_J_CI[BLOCKSIZE][BLOCKSIZE];
 
@@ -1602,6 +1602,8 @@ __global__ void cuda_mat_J_CI(double *xa, double *ya, double *za,
 
     for (int idx_k = thread_k; idx_k < n_combi; idx_k += BLOCKSIZE)
     {
+		if (fabs(mat_Q[idx_i] * mat_Q[idx_k] * mat_D[idx_k]) < SCREEN_THR) { continue; }
+
         int start_k = start_contr[idx_k];
         int end_k   = end_contr[idx_k];
 
@@ -1660,7 +1662,7 @@ __global__ void cuda_mat_K_CI(double *xa, double *ya, double *za,
                               double *xb, double *yb, double *zb, 
                               int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
                               int n_basis, int *start_contr, int *end_contr, 
-                              double *mat_D, double *mat_K)
+                              double *mat_D, double *mat_K, double *mat_Q)
 {
     __shared__ double elem_K_CI[BLOCKSIZE][BLOCKSIZE];
 
@@ -1691,6 +1693,9 @@ __global__ void cuda_mat_K_CI(double *xa, double *ya, double *za,
         for (int idx_l = thread_l; idx_l < n_basis; idx_l += BLOCKSIZE)
         {
             int idx_kl = cuda_ij2intindex(idx_k, idx_l);
+            int idx_jl = cuda_ij2intindex(idx_j, idx_l);
+
+			if (fabs(mat_Q[idx_ij] * mat_Q[idx_kl] * mat_D[idx_jl]) < SCREEN_THR) { continue; }
 
             int start_kl = start_contr[idx_kl];
             int end_kl   = end_contr[idx_kl];
@@ -1730,7 +1735,6 @@ __global__ void cuda_mat_K_CI(double *xa, double *ya, double *za,
             }
             // NOTE: mat_D already contains the 2.0 factor for non-diagonal elements
             // but we do not need this factor for K-matrix
-            int idx_jl = cuda_ij2intindex(idx_j, idx_l);
             elem_K_CI[thread_j][thread_l] += this_eri * mat_D[idx_jl] * (idx_j == idx_l ? 1.0 : 0.5);
         }
     }
