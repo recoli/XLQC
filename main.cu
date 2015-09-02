@@ -45,13 +45,17 @@
 
 int main(int argc, char* argv[])
 {
+    cudaFree(0);
+
     // initialize timer
     clock_t t0, t1;
     double  time_in_sec, time_total;
+    double  time_mat_J;
 
     t0 = clock();
     std::string time_txt ("");
     time_total = 0.0;
+    time_mat_J = 0.0;
 
     // use spherical harmonic d function?
     const int use_5d = 1;
@@ -394,11 +398,6 @@ int main(int argc, char* argv[])
     my_cuda_safe(cudaMemcpy(dev_start_contr, h_start_contr, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_start");
     my_cuda_safe(cudaMemcpy(dev_end_contr,   h_end_contr,   n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_end");
 
-    t0 = clock();
-    time_in_sec = (t0 - t1) / (double)CLOCKS_PER_SEC;
-    time_txt += "Time_2e_DMem  = " + std::to_string(time_in_sec) + " sec\n";
-    time_total += time_in_sec;
-
 
     // create 8x8 thread blocks
     dim3 block_size;
@@ -424,18 +423,13 @@ int main(int argc, char* argv[])
              n_combi, dev_start_contr, dev_end_contr, dev_eri);
     }
 
-    t1 = clock();
-    time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
-    time_txt += "Time_2e_GPU   = " + std::to_string(time_in_sec) + " sec\n";
-    time_total += time_in_sec;
-
 
     // copy the results back to host
     my_cuda_safe(cudaMemcpy(h_eri, dev_eri, n_ERI_bytes, cudaMemcpyDeviceToHost),"mem_eri"); 
 
     t0 = clock();
     time_in_sec = (t0 - t1) / (double)CLOCKS_PER_SEC;
-    time_txt += "Time_2e_HMem  = " + std::to_string(time_in_sec) + " sec\n";
+    time_txt += "Time_2e_GPU   = " + std::to_string(time_in_sec) + " sec\n";
     time_total += time_in_sec;
 
 
@@ -551,6 +545,12 @@ int main(int argc, char* argv[])
 
 
 
+
+
+        // timer for J-matrix
+        clock_t t2,t3;
+        t2 = clock();
+
         // NOTE: h_mat_D and dev_mat_D already contains the 2.0 factor for non-diagonal elements
         // This is convenient for J-matrix formation
         for (int a = 0; a < p_basis->num; ++ a) {
@@ -561,6 +561,7 @@ int main(int argc, char* argv[])
 
         my_cuda_safe(cudaMemcpy(dev_mat_D, h_mat_D, n_CI_bytes, cudaMemcpyHostToDevice),"mem_D");
     
+
         // still use 1T1CI
         //grid_size.x = n_combi / block_size.x + (n_combi % block_size.x ? 1 : 0);
         grid_size.y = 1;
@@ -581,6 +582,9 @@ int main(int argc, char* argv[])
             }
         }
 
+        t3 = clock();
+        time_in_sec = (t3 - t2) / (double)CLOCKS_PER_SEC;
+        time_mat_J += time_in_sec;
 
 
 
@@ -752,6 +756,8 @@ int main(int argc, char* argv[])
 
     std::cout << time_txt;
     std::cout << "Total time used " << time_total << " sec\n";
+
+    std::cout << "Mat_J time used " << time_mat_J << " sec\n";
 
 
     //====== the end of program ========
