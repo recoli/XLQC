@@ -146,7 +146,6 @@ int main(int argc, char* argv[])
 
     // two-electron ingetral
     int n_combi = p_basis->num * (p_basis->num + 1) / 2;
-    int n_eri = n_combi * (n_combi + 1) / 2;
 
     for (int a = 0; a < p_basis->num; ++ a)
     {
@@ -198,12 +197,10 @@ int main(int argc, char* argv[])
     // allocate memory for arrays on host
     // CI:  contracted integrals
     // PI:  primitive integrals
-    // ERI: electron repulsion integrals
     size_t n_CI_bytes     = sizeof(double) * n_combi;
     size_t n_CI_bytes_int = sizeof(int)    * n_combi;
     size_t n_PI_bytes     = sizeof(double) * n_prim_combi;
     size_t n_PI_bytes_int = sizeof(int)    * n_prim_combi;
-    size_t n_ERI_bytes    = sizeof(double) * n_eri;
 
     double *h_xa = (double *)my_malloc(n_CI_bytes);
     double *h_ya = (double *)my_malloc(n_CI_bytes);
@@ -229,7 +226,6 @@ int main(int argc, char* argv[])
     int *h_start_contr = (int *)my_malloc(n_CI_bytes_int);
     int *h_end_contr   = (int *)my_malloc(n_CI_bytes_int);
 
-    double *h_eri = (double *)my_malloc(n_ERI_bytes);
     double *h_mat_D = (double *)my_malloc(n_CI_bytes);
     double *h_mat_J = (double *)my_malloc(n_CI_bytes);
     double *h_mat_K = (double *)my_malloc(n_CI_bytes);
@@ -316,7 +312,6 @@ int main(int argc, char* argv[])
     int *dev_start_contr = NULL;
     int *dev_end_contr   = NULL;
 
-    double *dev_eri = NULL;
     double *dev_mat_D = NULL;
     double *dev_mat_K = NULL;
     double *dev_mat_Q = NULL;
@@ -325,8 +320,7 @@ int main(int argc, char* argv[])
 
     // allocate memories for arrays on device
     fprintf(stdout, "Mem_on_Device = %zu MB\n",
-            (n_CI_bytes*6 + n_PI_bytes_int*6 + n_PI_bytes*4 + 
-             n_CI_bytes_int*2 + n_ERI_bytes) / 1000000);
+            (n_CI_bytes*9 + n_PI_bytes_int*6 + n_PI_bytes*1 + n_CI_bytes_int*2) / 1000000);
 
     cudaMalloc((void**)&dev_xa, n_CI_bytes);
     cudaMalloc((void**)&dev_ya, n_CI_bytes);
@@ -371,17 +365,16 @@ int main(int argc, char* argv[])
     cudaMalloc((void**)&dev_start_contr, n_CI_bytes_int);
     cudaMalloc((void**)&dev_end_contr,   n_CI_bytes_int);
 
-    cudaMalloc((void**)&dev_eri, n_ERI_bytes);
     cudaMalloc((void**)&dev_mat_D, n_CI_bytes);
     cudaMalloc((void**)&dev_mat_K, n_CI_bytes);
     cudaMalloc((void**)&dev_mat_Q, n_CI_bytes);
 
     cudaMalloc((void**)&dev_mat_J_PI, n_PI_bytes);
 
-    if(dev_eri == NULL || dev_start_contr == NULL || dev_end_contr == NULL ||
+    if(dev_start_contr == NULL || dev_end_contr == NULL ||
        dev_mat_D == NULL || dev_mat_J_PI == NULL || dev_mat_K == NULL || dev_mat_Q == NULL)
     {
-        fprintf(stderr, "Error: cannot cudaMalloc for dev_eri!\n");
+        fprintf(stderr, "Error: cannot cudaMalloc for dev_mat!\n");
         exit(1);
     }
 
@@ -706,9 +699,6 @@ int main(int argc, char* argv[])
     gsl_matrix_free(S);
     gsl_matrix_free(T);
     gsl_matrix_free(V);
-    //free(ERI);
-
-    //gsl_matrix_free(Q);
 
     // free matrices and vector for SCF
     gsl_matrix_free(H_core);
