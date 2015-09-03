@@ -25,7 +25,7 @@
 #include <string>
 
 #include "cuda_rys_sp.h"
-#include "cuda_rys_dp.h"
+//#include "cuda_rys_dp.h"
 #include "typedef.h"
 
 void my_cuda_safe(cudaError_t err, std::string word)
@@ -1531,7 +1531,7 @@ __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za,
                               int n_combi, int n_prim_combi, int *start_contr, int *end_contr, 
                               double *mat_D, double *mat_J_PI, double *mat_Q)
 {
-    __shared__ double elem_J_CI[BLOCKSIZE][BLOCKSIZE];
+    __shared__ double elem_J_PI[BLOCKSIZE][BLOCKSIZE];
 
     int thread_i = threadIdx.x;
     int thread_k = threadIdx.y;
@@ -1547,7 +1547,7 @@ __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za,
     //if (this_k >= BLOCKSIZE) { return; }
 
     // initialize shared array
-    elem_J_CI[thread_i][thread_k] = 0.0;
+    elem_J_PI[thread_i][thread_k] = 0.0;
 
     float xai[3] = {(float)xa[idx_i],(float)ya[idx_i],(float)za[idx_i]};
     float xbi[3] = {(float)xb[idx_i],(float)yb[idx_i],(float)zb[idx_i]};
@@ -1587,7 +1587,7 @@ __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za,
                    lbk[0],lbk[1],lbk[2],exps_bk);
         
         // NOTE: mat_D already contains the 2.0 factor for non-diagonal elements
-        elem_J_CI[thread_i][thread_k] += this_eri * mat_D[idx_k];
+        elem_J_PI[thread_i][thread_k] += this_eri * mat_D[idx_k];
     }
 
     __syncthreads();
@@ -1597,7 +1597,7 @@ __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za,
         mat_J_PI[i] = 0.0; 
         for (int t = 0; t < BLOCKSIZE; ++ t)
         {
-            mat_J_PI[i] += elem_J_CI[thread_i][t];
+            mat_J_PI[i] += elem_J_PI[thread_i][t];
         }
     }
 }
@@ -1610,7 +1610,7 @@ __global__ void cuda_mat_K_PI(double *xa, double *ya, double *za,
                               int n_combi, int n_prim_basis, int *start_contr, int *end_contr, 
                               double *mat_D, double *mat_K_PI, double *mat_Q, int *idx_PI, int *idx_CF)
 {
-    __shared__ double elem_K_CI[BLOCKSIZE][BLOCKSIZE];
+    __shared__ double elem_K_PI[BLOCKSIZE][BLOCKSIZE];
 
     // do the usual computation separately in each dimension:
     int i = blockIdx.x;
@@ -1624,7 +1624,7 @@ __global__ void cuda_mat_K_PI(double *xa, double *ya, double *za,
     if (-1 == ik) { return; }
 
     // initialize shared array
-    elem_K_CI[thread_j][thread_l] = 0.0;
+    elem_K_PI[thread_j][thread_l] = 0.0;
 
     for (int j = thread_j; j < n_prim_basis; j += BLOCKSIZE)
     {
@@ -1678,7 +1678,7 @@ __global__ void cuda_mat_K_PI(double *xa, double *ya, double *za,
             // NOTE: mat_D already contains the 2.0 factor for non-diagonal elements
             // but we do not need this factor for K-matrix
             if (idx_CF[j] != idx_CF[l]) { this_eri *= 0.5; }
-            elem_K_CI[thread_j][thread_l] += this_eri * mat_D[idx_jl];
+            elem_K_PI[thread_j][thread_l] += this_eri * mat_D[idx_jl];
         }
     }
 
@@ -1689,7 +1689,7 @@ __global__ void cuda_mat_K_PI(double *xa, double *ya, double *za,
         mat_K_PI[ik] = 0.0; 
         for (int t1 = 0; t1 < BLOCKSIZE; ++ t1) {
             for (int t2 = 0; t2 < BLOCKSIZE; ++ t2) {
-                mat_K_PI[ik] += elem_K_CI[t1][t2];
+                mat_K_PI[ik] += elem_K_PI[t1][t2];
             }
         }
     }

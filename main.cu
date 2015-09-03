@@ -41,7 +41,7 @@
 #include "scf.h"
 
 #include "cuda_rys_sp.h"
-#include "cuda_rys_dp.h"
+//#include "cuda_rys_dp.h"
 
 int main(int argc, char* argv[])
 {
@@ -179,22 +179,29 @@ int main(int argc, char* argv[])
     time_total += time_in_sec;
 
 
-    // count number of primitive integrals in a <bra| or |ket>
+    // number of primitive bf
     int n_prim_basis = 0;
-    for (int a = 0; a < p_basis->num; ++ a) {
+    for (int a = 0; a < p_basis->num; ++ a) 
+    {
         n_prim_basis += p_basis->nprims[a];
     }
+
+    size_t n_PF_bytes_int  = sizeof(int) * n_prim_basis;
+    size_t n_PF2_bytes_int = sizeof(int) * n_prim_basis * n_prim_basis;
 
     // idx_PI: an array of dimension n_prim_basis x n_prim_basis
     // returns the index of bra/ket for primitive integrals
     // returns -1 if the combination is not considered
-    int *h_idx_PI = (int *)my_malloc(sizeof(int) * n_prim_basis * n_prim_basis);
-    for (int i = 0; i < n_prim_basis; ++ i) {
-        for (int k = 0; k < n_prim_basis; ++ k) {
+    int *h_idx_PI = (int *)my_malloc(n_PF2_bytes_int);
+    for (int i = 0; i < n_prim_basis; ++ i) 
+    {
+        for (int k = 0; k < n_prim_basis; ++ k) 
+        {
             h_idx_PI[i * n_prim_basis + k] = -1;
         }
     }
 
+    // number of bra/ket pairs for primitive integrals
     int n_prim_combi = 0;
     for (int a = 0; a < p_basis->num; ++ a)
     {
@@ -202,7 +209,9 @@ int main(int argc, char* argv[])
 
         int count_prim_a = 0;
         for (int tmp = 0; tmp < a; ++ tmp)
+        {
             count_prim_a += p_basis->nprims[tmp];
+        }
 
         for (int b = 0; b <= a; ++ b)
         {
@@ -210,14 +219,21 @@ int main(int argc, char* argv[])
 
             int count_prim_b = 0;
             for (int tmp = 0; tmp < b; ++ tmp)
+            {
                 count_prim_b += p_basis->nprims[tmp];
+            }
         
             for (int i = 0; i < lena; ++ i)
             {
+                int ai = count_prim_a + i;
                 for (int j = 0; j < lenb; ++ j)
                 {
-                    h_idx_PI[(i+count_prim_a) * n_prim_basis + (j+count_prim_b)] = n_prim_combi;
+                    int bj = count_prim_b + j;
 
+                    // update idx_PI for bra/ket pairs
+                    h_idx_PI[ai * n_prim_basis + bj] = n_prim_combi;
+
+                    // update number of bra/ket pairs for PI
                     ++ n_prim_combi;
                 }
             }
@@ -227,14 +243,16 @@ int main(int argc, char* argv[])
 
     // idx_CF: an array of dimension n_prim_basis
     // returns the index of contracted bf for a primitive bf
-    int *h_idx_CF = (int *)my_malloc(sizeof(int) * n_prim_basis);
+    int *h_idx_CF = (int *)my_malloc(n_PF_bytes_int);
     for (int a = 0; a < p_basis->num; ++ a)
     {
         int lena = p_basis->nprims[a];
 
         int count_prim_a = 0;
         for (int tmp = 0; tmp < a; ++ tmp)
+        {
             count_prim_a += p_basis->nprims[tmp];
+        }
 
         for (int i = 0; i < lena; ++ i)
         {
@@ -275,13 +293,19 @@ int main(int argc, char* argv[])
     int *h_start_contr = (int *)my_malloc(n_CI_bytes_int);
     int *h_end_contr   = (int *)my_malloc(n_CI_bytes_int);
 
+    // D: density matrix
+    // J: Coulomb matrix
+    // K: exchange matrix
+    // Q: Schwartz pre-screening matrix
     double *h_mat_D = (double *)my_malloc(n_CI_bytes);
     double *h_mat_J = (double *)my_malloc(n_CI_bytes);
     double *h_mat_K = (double *)my_malloc(n_CI_bytes);
     double *h_mat_Q = (double *)my_malloc(n_CI_bytes);
 
+    // J_PI and K_PI: for 1T1PI computation on GPUs
     double *h_mat_J_PI = (double *)my_malloc(n_PI_bytes);
     double *h_mat_K_PI = (double *)my_malloc(n_PI_bytes);
+
 
     // fill arrays on host
     // index_prim counts primitive integrals
@@ -352,89 +376,49 @@ int main(int argc, char* argv[])
     double *dev_aexps, *dev_acoef;
     double *dev_bexps, *dev_bcoef;
 
-    dev_xa = NULL; dev_ya = NULL; dev_za = NULL;
-    dev_xb = NULL; dev_yb = NULL; dev_zb = NULL;
-    dev_la = NULL; dev_ma = NULL; dev_na = NULL;
-    dev_lb = NULL; dev_mb = NULL; dev_nb = NULL;
-    dev_aexps = NULL; dev_acoef = NULL;
-    dev_bexps = NULL; dev_bcoef = NULL;
+    int *dev_start_contr, *dev_end_contr;
 
-    int *dev_start_contr = NULL;
-    int *dev_end_contr   = NULL;
+    double *dev_mat_D, *dev_mat_Q, *dev_mat_J_PI, *dev_mat_K_PI;
 
-    double *dev_mat_D = NULL;
-    double *dev_mat_Q = NULL;
-
-    double *dev_mat_J_PI = NULL;
-    double *dev_mat_K_PI = NULL;
-
-    int *dev_idx_PI = NULL;
-
-    int *dev_idx_CF = NULL;
+    int *dev_idx_PI, *dev_idx_CF;
 
     // allocate memories for arrays on device
+    /*
     fprintf(stdout, "Mem_on_Device = %zu MB\n",
             (n_CI_bytes*9 + n_PI_bytes_int*6 + n_PI_bytes*1 + n_CI_bytes_int*2) / 1000000);
+    */
 
-    cudaMalloc((void**)&dev_xa, n_CI_bytes);
-    cudaMalloc((void**)&dev_ya, n_CI_bytes);
-    cudaMalloc((void**)&dev_za, n_CI_bytes);
-    cudaMalloc((void**)&dev_xb, n_CI_bytes);
-    cudaMalloc((void**)&dev_yb, n_CI_bytes);
-    cudaMalloc((void**)&dev_zb, n_CI_bytes);
+    my_cuda_safe(cudaMalloc((void**)&dev_xa, n_CI_bytes),"alloc_xa");
+    my_cuda_safe(cudaMalloc((void**)&dev_ya, n_CI_bytes),"alloc_ya");
+    my_cuda_safe(cudaMalloc((void**)&dev_za, n_CI_bytes),"alloc_za");
+    my_cuda_safe(cudaMalloc((void**)&dev_xb, n_CI_bytes),"alloc_xb");
+    my_cuda_safe(cudaMalloc((void**)&dev_yb, n_CI_bytes),"alloc_yb");
+    my_cuda_safe(cudaMalloc((void**)&dev_zb, n_CI_bytes),"alloc_zb");
 
-    if(dev_xa == NULL || dev_ya == NULL || dev_za == NULL ||
-       dev_xb == NULL || dev_yb == NULL || dev_zb == NULL)
-    {
-        fprintf(stderr, "Error: cannot cudaMalloc for x_basis!\n");
-        exit(1);
-    }
+    my_cuda_safe(cudaMalloc((void**)&dev_la, n_PI_bytes_int),"alloc_la");
+    my_cuda_safe(cudaMalloc((void**)&dev_ma, n_PI_bytes_int),"alloc_ma");
+    my_cuda_safe(cudaMalloc((void**)&dev_na, n_PI_bytes_int),"alloc_na");
+    my_cuda_safe(cudaMalloc((void**)&dev_lb, n_PI_bytes_int),"alloc_lb");
+    my_cuda_safe(cudaMalloc((void**)&dev_mb, n_PI_bytes_int),"alloc_mb");
+    my_cuda_safe(cudaMalloc((void**)&dev_nb, n_PI_bytes_int),"alloc_nb");
 
-    cudaMalloc((void**)&dev_la, n_PI_bytes_int);
-    cudaMalloc((void**)&dev_ma, n_PI_bytes_int);
-    cudaMalloc((void**)&dev_na, n_PI_bytes_int);
-    cudaMalloc((void**)&dev_lb, n_PI_bytes_int);
-    cudaMalloc((void**)&dev_mb, n_PI_bytes_int);
-    cudaMalloc((void**)&dev_nb, n_PI_bytes_int);
+    my_cuda_safe(cudaMalloc((void**)&dev_aexps, n_PI_bytes),"alloc_aexps");
+    my_cuda_safe(cudaMalloc((void**)&dev_acoef, n_PI_bytes),"alloc_acoef");
+    my_cuda_safe(cudaMalloc((void**)&dev_bexps, n_PI_bytes),"alloc_bexps");
+    my_cuda_safe(cudaMalloc((void**)&dev_bcoef, n_PI_bytes),"alloc_bcoef");
 
-    if(dev_la == NULL || dev_ma == NULL || dev_na == NULL ||
-       dev_lb == NULL || dev_mb == NULL || dev_nb == NULL)
-    {
-        fprintf(stderr, "Error: cannot cudaMalloc for l_basis!\n");
-        exit(1);
-    }
+    my_cuda_safe(cudaMalloc((void**)&dev_start_contr, n_CI_bytes_int),"alloc_st");
+    my_cuda_safe(cudaMalloc((void**)&dev_end_contr,   n_CI_bytes_int),"alloc_ed");
 
-    cudaMalloc((void**)&dev_aexps, n_PI_bytes);
-    cudaMalloc((void**)&dev_acoef, n_PI_bytes);
-    cudaMalloc((void**)&dev_bexps, n_PI_bytes);
-    cudaMalloc((void**)&dev_bcoef, n_PI_bytes);
+    my_cuda_safe(cudaMalloc((void**)&dev_mat_D, n_CI_bytes),"alloc_D");
+    my_cuda_safe(cudaMalloc((void**)&dev_mat_Q, n_CI_bytes),"alloc_Q");
 
-    if(dev_aexps == NULL || dev_acoef == NULL ||
-       dev_bexps == NULL || dev_bcoef == NULL)
-    {
-        fprintf(stderr, "Error: cannot cudaMalloc for exps_basis!\n");
-        exit(1);
-    }
+    my_cuda_safe(cudaMalloc((void**)&dev_mat_J_PI, n_PI_bytes),"alloc_J_PI");
+    my_cuda_safe(cudaMalloc((void**)&dev_mat_K_PI, n_PI_bytes),"alloc_K_PI");
 
-    cudaMalloc((void**)&dev_start_contr, n_CI_bytes_int);
-    cudaMalloc((void**)&dev_end_contr,   n_CI_bytes_int);
+    my_cuda_safe(cudaMalloc((void**)&dev_idx_PI, n_PF2_bytes_int),"alloc_idxPI");
+    my_cuda_safe(cudaMalloc((void**)&dev_idx_CF, n_PF_bytes_int), "alloc_idxCF");
 
-    cudaMalloc((void**)&dev_mat_D, n_CI_bytes);
-    cudaMalloc((void**)&dev_mat_Q, n_CI_bytes);
-
-    cudaMalloc((void**)&dev_mat_J_PI, n_PI_bytes);
-    cudaMalloc((void**)&dev_mat_K_PI, n_PI_bytes);
-
-    cudaMalloc((void**)&dev_idx_PI, sizeof(int)*n_prim_basis*n_prim_basis);
-    cudaMalloc((void**)&dev_idx_CF, sizeof(int)*n_prim_basis);
-
-    if(dev_start_contr == NULL || dev_end_contr == NULL ||
-       dev_mat_D == NULL || dev_mat_J_PI == NULL || dev_mat_K_PI == NULL ||
-       dev_mat_Q == NULL || dev_idx_PI == NULL || dev_idx_CF == NULL)
-    {
-        fprintf(stderr, "Error: cannot cudaMalloc for dev_mat!\n");
-        exit(1);
-    }
 
     // copy data from host to device
     my_cuda_safe(cudaMemcpy(dev_xa, h_xa, n_CI_bytes, cudaMemcpyHostToDevice),"mem_xa");
@@ -459,8 +443,9 @@ int main(int argc, char* argv[])
     my_cuda_safe(cudaMemcpy(dev_start_contr, h_start_contr, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_start");
     my_cuda_safe(cudaMemcpy(dev_end_contr,   h_end_contr,   n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_end");
 
-    my_cuda_safe(cudaMemcpy(dev_idx_PI, h_idx_PI, sizeof(int)*n_prim_basis*n_prim_basis, cudaMemcpyHostToDevice),"mem_idx");
-    my_cuda_safe(cudaMemcpy(dev_idx_CF, h_idx_CF, sizeof(int)*n_prim_basis, cudaMemcpyHostToDevice),"mem_CF");
+    my_cuda_safe(cudaMemcpy(dev_idx_PI, h_idx_PI, n_PF2_bytes_int, cudaMemcpyHostToDevice),"mem_idxPI");
+    my_cuda_safe(cudaMemcpy(dev_idx_CF, h_idx_CF, n_PF_bytes_int,  cudaMemcpyHostToDevice),"mem_idxCF");
+
 
     // create 8x8 thread blocks
     dim3 block_size;
@@ -587,10 +572,10 @@ int main(int argc, char* argv[])
         // compute new density matrix
 
 
-
         // timer for J-matrix
         clock_t t2,t3;
         t2 = clock();
+
 
         // NOTE: h_mat_D and dev_mat_D already contains the 2.0 factor for non-diagonal elements
         // This is convenient for J-matrix formation
@@ -660,17 +645,14 @@ int main(int argc, char* argv[])
             }
         }
 
-
         t3 = clock();
         time_in_sec = (t3 - t2) / (double)CLOCKS_PER_SEC;
         time_mat_J += time_in_sec;
 
 
-
 #ifdef DEBUG
         printf("J:\n"); my_print_matrix(J);
         printf("K:\n"); my_print_matrix(K);
-        printf("G:\n"); my_print_matrix(G);
 #endif
 
         form_Fock(p_basis->num, H_core, J, K, Fock);
@@ -679,7 +661,7 @@ int main(int argc, char* argv[])
         if (iter > 0)
         {
             update_Fock_DIIS(&diis_dim, &diis_index, &delta_DIIS, 
-                        Fock, D_prev, S, p_basis, diis_err, diis_Fock);
+                Fock, D_prev, S, p_basis, diis_err, diis_Fock);
         }
 
         // update density matrix and energies
