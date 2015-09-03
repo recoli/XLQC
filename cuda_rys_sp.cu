@@ -1513,23 +1513,12 @@ __device__ float cuda_rys_coulomb_repulsion(float xa, float ya, float za, float 
 }
 
 
-__device__ int idx_PI_to_CI(int i, int n_combi, int *start_contr, int *end_contr)
-{
-    for (int idx = 0; idx < n_combi; ++ idx) {
-        if (i >= start_contr[idx] && i <= end_contr[idx]) {
-            return idx;
-        }
-    }
-    return -1;
-}
-
-
 __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za, 
                               int *la, int *ma, int *na, double *aexps, double *acoef, 
                               double *xb, double *yb, double *zb, 
                               int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
                               int n_combi, int n_prim_combi, int *start_contr, int *end_contr, 
-                              double *mat_D, double *mat_J_PI, double *mat_Q)
+                              double *mat_D, double *mat_J_PI, double *mat_Q, int *idx_CI)
 {
     __shared__ double elem_J_PI[BLOCKSIZE][BLOCKSIZE];
 
@@ -1538,7 +1527,7 @@ __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za,
 
     // do the usual computation separately in each dimension:
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int idx_i = idx_PI_to_CI(i, n_combi, start_contr, end_contr);
+    int idx_i = idx_CI[i];
 
     // avoid accessing out of bounds elements
     if (i >= n_prim_combi) { return; }
@@ -1554,7 +1543,7 @@ __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za,
 
     for (int k = thread_k; k < n_prim_combi; k += BLOCKSIZE)
     {
-        int idx_k = idx_PI_to_CI(k, n_combi, start_contr, end_contr);
+        int idx_k = idx_CI[k];
 
         if (fabs(mat_Q[idx_i] * mat_Q[idx_k] * mat_D[idx_k]) < SCREEN_THR) { continue; }
 
@@ -1608,7 +1597,8 @@ __global__ void cuda_mat_K_PI(double *xa, double *ya, double *za,
                               double *xb, double *yb, double *zb, 
                               int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
                               int n_combi, int n_prim_basis, int *start_contr, int *end_contr, 
-                              double *mat_D, double *mat_K_PI, double *mat_Q, int *idx_PI, int *idx_CF)
+                              double *mat_D, double *mat_K_PI, double *mat_Q, 
+                              int *idx_PI, int *idx_CF, int *idx_CI)
 {
     __shared__ double elem_K_PI[BLOCKSIZE][BLOCKSIZE];
 
@@ -1630,7 +1620,7 @@ __global__ void cuda_mat_K_PI(double *xa, double *ya, double *za,
     {
         int ij = idx_PI[i*n_prim_basis+j];
         if (-1 == ij) { ij = idx_PI[j*n_prim_basis+i]; }
-        int idx_ij = idx_PI_to_CI(ij, n_combi, start_contr, end_contr);
+        int idx_ij = idx_CI[ij];
 
         float xaij[3] = {(float)xa[idx_ij],(float)ya[idx_ij],(float)za[idx_ij]};
         float xbij[3] = {(float)xb[idx_ij],(float)yb[idx_ij],(float)zb[idx_ij]};
@@ -1646,11 +1636,11 @@ __global__ void cuda_mat_K_PI(double *xa, double *ya, double *za,
         {
             int kl = idx_PI[k*n_prim_basis+l];
             if (-1 == kl) { kl = idx_PI[l*n_prim_basis+k]; }
-            int idx_kl = idx_PI_to_CI(kl, n_combi, start_contr, end_contr);
+            int idx_kl = idx_CI[kl];
 
             int jl = idx_PI[j*n_prim_basis+l];
             if (-1 == jl) { jl = idx_PI[l*n_prim_basis+j]; }
-            int idx_jl = idx_PI_to_CI(jl, n_combi, start_contr, end_contr);
+            int idx_jl = idx_CI[jl];
 
             if (fabs(mat_Q[idx_ij] * mat_Q[idx_kl] * mat_D[idx_jl]) < SCREEN_THR) { continue; }
 

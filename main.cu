@@ -269,6 +269,29 @@ int main(int argc, char* argv[])
     size_t n_PI_bytes     = sizeof(double) * n_prim_combi;
     size_t n_PI_bytes_int = sizeof(int)    * n_prim_combi;
 
+
+    // idx_CI: returns the index of CI pair for a PI pair
+    int *h_idx_CI = (int *)my_malloc(n_PI_bytes_int);
+    int i_prim_combi = 0;
+    for (int a = 0; a < p_basis->num; ++ a)
+    {
+        for (int b = 0; b <= a; ++ b)
+        {
+            for (int i = 0; i < p_basis->nprims[a]; ++ i)
+            {
+                for (int j = 0; j < p_basis->nprims[b]; ++ j)
+                {
+                    // update idx_CI for bra/ket pairs
+                    h_idx_CI[i_prim_combi] = ij2intindex(a,b);
+
+                    // update number of bra/ket pairs for PI
+                    ++ i_prim_combi;
+                }
+            }
+        }
+    }
+
+
     double *h_xa = (double *)my_malloc(n_CI_bytes);
     double *h_ya = (double *)my_malloc(n_CI_bytes);
     double *h_za = (double *)my_malloc(n_CI_bytes);
@@ -380,7 +403,7 @@ int main(int argc, char* argv[])
 
     double *dev_mat_D, *dev_mat_Q, *dev_mat_J_PI, *dev_mat_K_PI;
 
-    int *dev_idx_PI, *dev_idx_CF;
+    int *dev_idx_CI, *dev_idx_PI, *dev_idx_CF;
 
     // allocate memories for arrays on device
     /*
@@ -419,6 +442,8 @@ int main(int argc, char* argv[])
     my_cuda_safe(cudaMalloc((void**)&dev_idx_PI, n_PF2_bytes_int),"alloc_idxPI");
     my_cuda_safe(cudaMalloc((void**)&dev_idx_CF, n_PF_bytes_int), "alloc_idxCF");
 
+    my_cuda_safe(cudaMalloc((void**)&dev_idx_CI, n_PI_bytes_int),"alloc_ed");
+
 
     // copy data from host to device
     my_cuda_safe(cudaMemcpy(dev_xa, h_xa, n_CI_bytes, cudaMemcpyHostToDevice),"mem_xa");
@@ -445,6 +470,8 @@ int main(int argc, char* argv[])
 
     my_cuda_safe(cudaMemcpy(dev_idx_PI, h_idx_PI, n_PF2_bytes_int, cudaMemcpyHostToDevice),"mem_idxPI");
     my_cuda_safe(cudaMemcpy(dev_idx_CF, h_idx_CF, n_PF_bytes_int,  cudaMemcpyHostToDevice),"mem_idxCF");
+
+    my_cuda_safe(cudaMemcpy(dev_idx_CI, h_idx_CI, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_idxCI");
 
 
     // create 8x8 thread blocks
@@ -595,7 +622,8 @@ int main(int argc, char* argv[])
         cuda_mat_J_PI<<<grid_size, block_size>>>
             (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
              dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
-             n_combi, n_prim_combi, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_J_PI, dev_mat_Q);
+             n_combi, n_prim_combi, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_J_PI, 
+             dev_mat_Q, dev_idx_CI);
 
         my_cuda_safe(cudaMemcpy(h_mat_J_PI, dev_mat_J_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_J_PI");
 
@@ -619,7 +647,7 @@ int main(int argc, char* argv[])
             (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
              dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
              n_combi, n_prim_basis, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_K_PI, 
-             dev_mat_Q, dev_idx_PI, dev_idx_CF);
+             dev_mat_Q, dev_idx_PI, dev_idx_CF, dev_idx_CI);
 
         my_cuda_safe(cudaMemcpy(h_mat_K_PI, dev_mat_K_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_K_PI");
 
