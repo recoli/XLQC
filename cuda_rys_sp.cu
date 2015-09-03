@@ -1513,102 +1513,6 @@ __device__ float cuda_rys_coulomb_repulsion(float xa, float ya, float za, float 
 }
 
 
-__global__ void cuda_mat_K_CI(double *xa, double *ya, double *za, 
-                              int *la, int *ma, int *na, double *aexps, double *acoef, 
-                              double *xb, double *yb, double *zb, 
-                              int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
-                              int n_basis, int *start_contr, int *end_contr, 
-                              double *mat_D, double *mat_K, double *mat_Q)
-{
-    __shared__ double elem_K_CI[BLOCKSIZE][BLOCKSIZE];
-
-    // do the usual computation separately in each dimension:
-    int idx_i = blockIdx.x;
-    int idx_k = blockIdx.y;
-
-    int thread_j = threadIdx.x;
-    int thread_l = threadIdx.y;
-
-    // avoid accessing out of bounds elements
-    if (idx_i < idx_k) { return; }
-    int idx_ik = cuda_ij2intindex(idx_i, idx_k);
-
-    // initialize shared array
-    elem_K_CI[thread_j][thread_l] = 0.0;
-
-    for (int idx_j = thread_j; idx_j < n_basis; idx_j += BLOCKSIZE)
-    {
-        int idx_ij = cuda_ij2intindex(idx_i, idx_j);
-
-        int start_ij = start_contr[idx_ij];
-        int end_ij   = end_contr[idx_ij];
- 
-        float xaij[3] = {(float)xa[idx_ij],(float)ya[idx_ij],(float)za[idx_ij]};
-        float xbij[3] = {(float)xb[idx_ij],(float)yb[idx_ij],(float)zb[idx_ij]};
-
-        for (int idx_l = thread_l; idx_l < n_basis; idx_l += BLOCKSIZE)
-        {
-            int idx_kl = cuda_ij2intindex(idx_k, idx_l);
-            int idx_jl = cuda_ij2intindex(idx_j, idx_l);
-
-            if (fabs(mat_Q[idx_ij] * mat_Q[idx_kl] * mat_D[idx_jl]) < SCREEN_THR) { continue; }
-
-            int start_kl = start_contr[idx_kl];
-            int end_kl   = end_contr[idx_kl];
-         
-            float xakl[3] = {(float)xa[idx_kl],(float)ya[idx_kl],(float)za[idx_kl]};
-            float xbkl[3] = {(float)xb[idx_kl],(float)yb[idx_kl],(float)zb[idx_kl]};
-         
-            double this_eri = 0.0;
-            for (int ij = start_ij; ij <= end_ij; ++ ij)
-            {
-                int laij[3] = {la[ij],ma[ij],na[ij]};
-                int lbij[3] = {lb[ij],mb[ij],nb[ij]};
-                float coef_aij = (float)acoef[ij];
-                float exps_aij = (float)aexps[ij];
-                float coef_bij = (float)bcoef[ij];
-                float exps_bij = (float)bexps[ij];
-         
-                for (int kl = start_kl; kl <= end_kl; ++ kl)
-                {
-                    int lakl[3] = {la[kl],ma[kl],na[kl]};
-                    int lbkl[3] = {lb[kl],mb[kl],nb[kl]};
-                    float coef_akl = (float)acoef[kl];
-                    float exps_akl = (float)aexps[kl];
-                    float coef_bkl = (float)bcoef[kl];
-                    float exps_bkl = (float)bexps[kl];
-         
-                    this_eri += cuda_rys_coulomb_repulsion(
-                                xaij[0],xaij[1],xaij[2],coef_aij,
-                                laij[0],laij[1],laij[2],exps_aij,
-                                xbij[0],xbij[1],xbij[2],coef_bij,
-                                lbij[0],lbij[1],lbij[2],exps_bij,
-                                xakl[0],xakl[1],xakl[2],coef_akl,
-                                lakl[0],lakl[1],lakl[2],exps_akl,
-                                xbkl[0],xbkl[1],xbkl[2],coef_bkl,
-                                lbkl[0],lbkl[1],lbkl[2],exps_bkl);
-                }
-            }
-            // NOTE: mat_D already contains the 2.0 factor for non-diagonal elements
-            // but we do not need this factor for K-matrix
-            elem_K_CI[thread_j][thread_l] += this_eri * mat_D[idx_jl] * (idx_j == idx_l ? 1.0 : 0.5);
-        }
-    }
-
-    __syncthreads();
-
-    if (0 == thread_j && 0 == thread_l)
-    {
-        mat_K[idx_ik] = 0.0; 
-        for (int t1 = 0; t1 < BLOCKSIZE; ++ t1) {
-            for (int t2 = 0; t2 < BLOCKSIZE; ++ t2) {
-                mat_K[idx_ik] += elem_K_CI[t1][t2];
-            }
-        }
-    }
-}
-
-
 __device__ int idx_PI_to_CI(int i, int n_combi, int *start_contr, int *end_contr)
 {
     for (int idx = 0; idx < n_combi; ++ idx) {
@@ -1694,6 +1598,99 @@ __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za,
         for (int t = 0; t < BLOCKSIZE; ++ t)
         {
             mat_J_PI[i] += elem_J_CI[thread_i][t];
+        }
+    }
+}
+
+
+__global__ void cuda_mat_K_PI(double *xa, double *ya, double *za, 
+                              int *la, int *ma, int *na, double *aexps, double *acoef, 
+                              double *xb, double *yb, double *zb, 
+                              int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
+                              int n_combi, int n_prim_basis, int *start_contr, int *end_contr, 
+                              double *mat_D, double *mat_K_PI, double *mat_Q, int *idx_PI, int *idx_CF)
+{
+    __shared__ double elem_K_CI[BLOCKSIZE][BLOCKSIZE];
+
+    // do the usual computation separately in each dimension:
+    int i = blockIdx.x;
+    int k = blockIdx.y;
+
+    int thread_j = threadIdx.x;
+    int thread_l = threadIdx.y;
+
+    // avoid accessing out of bounds elements
+    int ik = idx_PI[i*n_prim_basis+k];
+    if (-1 == ik) { return; }
+
+    // initialize shared array
+    elem_K_CI[thread_j][thread_l] = 0.0;
+
+    for (int j = thread_j; j < n_prim_basis; j += BLOCKSIZE)
+    {
+        int ij = idx_PI[i*n_prim_basis+j];
+        if (-1 == ij) { ij = idx_PI[j*n_prim_basis+i]; }
+        int idx_ij = idx_PI_to_CI(ij, n_combi, start_contr, end_contr);
+
+        float xaij[3] = {(float)xa[idx_ij],(float)ya[idx_ij],(float)za[idx_ij]};
+        float xbij[3] = {(float)xb[idx_ij],(float)yb[idx_ij],(float)zb[idx_ij]};
+
+        int laij[3] = {la[ij],ma[ij],na[ij]};
+        int lbij[3] = {lb[ij],mb[ij],nb[ij]};
+        float coef_aij = (float)acoef[ij];
+        float exps_aij = (float)aexps[ij];
+        float coef_bij = (float)bcoef[ij];
+        float exps_bij = (float)bexps[ij];
+         
+        for (int l = thread_l; l < n_prim_basis; l += BLOCKSIZE)
+        {
+            int kl = idx_PI[k*n_prim_basis+l];
+            if (-1 == kl) { kl = idx_PI[l*n_prim_basis+k]; }
+            int idx_kl = idx_PI_to_CI(kl, n_combi, start_contr, end_contr);
+
+            int jl = idx_PI[j*n_prim_basis+l];
+            if (-1 == jl) { jl = idx_PI[l*n_prim_basis+j]; }
+            int idx_jl = idx_PI_to_CI(jl, n_combi, start_contr, end_contr);
+
+            if (fabs(mat_Q[idx_ij] * mat_Q[idx_kl] * mat_D[idx_jl]) < SCREEN_THR) { continue; }
+
+            float xakl[3] = {(float)xa[idx_kl],(float)ya[idx_kl],(float)za[idx_kl]};
+            float xbkl[3] = {(float)xb[idx_kl],(float)yb[idx_kl],(float)zb[idx_kl]};
+         
+            int lakl[3] = {la[kl],ma[kl],na[kl]};
+            int lbkl[3] = {lb[kl],mb[kl],nb[kl]};
+            float coef_akl = (float)acoef[kl];
+            float exps_akl = (float)aexps[kl];
+            float coef_bkl = (float)bcoef[kl];
+            float exps_bkl = (float)bexps[kl];
+         
+            double this_eri;
+            this_eri = cuda_rys_coulomb_repulsion(
+                       xaij[0],xaij[1],xaij[2],coef_aij,
+                       laij[0],laij[1],laij[2],exps_aij,
+                       xbij[0],xbij[1],xbij[2],coef_bij,
+                       lbij[0],lbij[1],lbij[2],exps_bij,
+                       xakl[0],xakl[1],xakl[2],coef_akl,
+                       lakl[0],lakl[1],lakl[2],exps_akl,
+                       xbkl[0],xbkl[1],xbkl[2],coef_bkl,
+                       lbkl[0],lbkl[1],lbkl[2],exps_bkl);
+
+            // NOTE: mat_D already contains the 2.0 factor for non-diagonal elements
+            // but we do not need this factor for K-matrix
+            if (idx_CF[j] != idx_CF[l]) { this_eri *= 0.5; }
+            elem_K_CI[thread_j][thread_l] += this_eri * mat_D[idx_jl];
+        }
+    }
+
+    __syncthreads();
+
+    if (0 == thread_j && 0 == thread_l)
+    {
+        mat_K_PI[ik] = 0.0; 
+        for (int t1 = 0; t1 < BLOCKSIZE; ++ t1) {
+            for (int t2 = 0; t2 < BLOCKSIZE; ++ t2) {
+                mat_K_PI[ik] += elem_K_CI[t1][t2];
+            }
         }
     }
 }

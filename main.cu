@@ -180,19 +180,68 @@ int main(int argc, char* argv[])
 
 
     // count number of primitive integrals in a <bra| or |ket>
+    int n_prim_basis = 0;
+    for (int a = 0; a < p_basis->num; ++ a) {
+        n_prim_basis += p_basis->nprims[a];
+    }
+
+    // idx_PI: an array of dimension n_prim_basis x n_prim_basis
+    // returns the index of bra/ket for primitive integrals
+    // returns -1 if the combination is not considered
+    int *h_idx_PI = (int *)my_malloc(sizeof(int) * n_prim_basis * n_prim_basis);
+    for (int i = 0; i < n_prim_basis; ++ i) {
+        for (int k = 0; k < n_prim_basis; ++ k) {
+            h_idx_PI[i * n_prim_basis + k] = -1;
+        }
+    }
+
     int n_prim_combi = 0;
     for (int a = 0; a < p_basis->num; ++ a)
     {
         int lena = p_basis->nprims[a];
+
+        int count_prim_a = 0;
+        for (int tmp = 0; tmp < a; ++ tmp)
+            count_prim_a += p_basis->nprims[tmp];
+
         for (int b = 0; b <= a; ++ b)
         {
             int lenb = p_basis->nprims[b];
+
+            int count_prim_b = 0;
+            for (int tmp = 0; tmp < b; ++ tmp)
+                count_prim_b += p_basis->nprims[tmp];
         
             for (int i = 0; i < lena; ++ i)
+            {
                 for (int j = 0; j < lenb; ++ j)
+                {
+                    h_idx_PI[(i+count_prim_a) * n_prim_basis + (j+count_prim_b)] = n_prim_combi;
+
                     ++ n_prim_combi;
+                }
+            }
         }
     }
+
+
+    // idx_CF: an array of dimension n_prim_basis
+    // returns the index of contracted bf for a primitive bf
+    int *h_idx_CF = (int *)my_malloc(sizeof(int) * n_prim_basis);
+    for (int a = 0; a < p_basis->num; ++ a)
+    {
+        int lena = p_basis->nprims[a];
+
+        int count_prim_a = 0;
+        for (int tmp = 0; tmp < a; ++ tmp)
+            count_prim_a += p_basis->nprims[tmp];
+
+        for (int i = 0; i < lena; ++ i)
+        {
+            h_idx_CF[count_prim_a + i] = a;
+        }
+    }
+
 
     // allocate memory for arrays on host
     // CI:  contracted integrals
@@ -232,6 +281,7 @@ int main(int argc, char* argv[])
     double *h_mat_Q = (double *)my_malloc(n_CI_bytes);
 
     double *h_mat_J_PI = (double *)my_malloc(n_PI_bytes);
+    double *h_mat_K_PI = (double *)my_malloc(n_PI_bytes);
 
     // fill arrays on host
     // index_prim counts primitive integrals
@@ -313,10 +363,14 @@ int main(int argc, char* argv[])
     int *dev_end_contr   = NULL;
 
     double *dev_mat_D = NULL;
-    double *dev_mat_K = NULL;
     double *dev_mat_Q = NULL;
 
     double *dev_mat_J_PI = NULL;
+    double *dev_mat_K_PI = NULL;
+
+    int *dev_idx_PI = NULL;
+
+    int *dev_idx_CF = NULL;
 
     // allocate memories for arrays on device
     fprintf(stdout, "Mem_on_Device = %zu MB\n",
@@ -366,13 +420,17 @@ int main(int argc, char* argv[])
     cudaMalloc((void**)&dev_end_contr,   n_CI_bytes_int);
 
     cudaMalloc((void**)&dev_mat_D, n_CI_bytes);
-    cudaMalloc((void**)&dev_mat_K, n_CI_bytes);
     cudaMalloc((void**)&dev_mat_Q, n_CI_bytes);
 
     cudaMalloc((void**)&dev_mat_J_PI, n_PI_bytes);
+    cudaMalloc((void**)&dev_mat_K_PI, n_PI_bytes);
+
+    cudaMalloc((void**)&dev_idx_PI, sizeof(int)*n_prim_basis*n_prim_basis);
+    cudaMalloc((void**)&dev_idx_CF, sizeof(int)*n_prim_basis);
 
     if(dev_start_contr == NULL || dev_end_contr == NULL ||
-       dev_mat_D == NULL || dev_mat_J_PI == NULL || dev_mat_K == NULL || dev_mat_Q == NULL)
+       dev_mat_D == NULL || dev_mat_J_PI == NULL || dev_mat_K_PI == NULL ||
+       dev_mat_Q == NULL || dev_idx_PI == NULL || dev_idx_CF == NULL)
     {
         fprintf(stderr, "Error: cannot cudaMalloc for dev_mat!\n");
         exit(1);
@@ -401,6 +459,8 @@ int main(int argc, char* argv[])
     my_cuda_safe(cudaMemcpy(dev_start_contr, h_start_contr, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_start");
     my_cuda_safe(cudaMemcpy(dev_end_contr,   h_end_contr,   n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_end");
 
+    my_cuda_safe(cudaMemcpy(dev_idx_PI, h_idx_PI, sizeof(int)*n_prim_basis*n_prim_basis, cudaMemcpyHostToDevice),"mem_idx");
+    my_cuda_safe(cudaMemcpy(dev_idx_CF, h_idx_CF, sizeof(int)*n_prim_basis, cudaMemcpyHostToDevice),"mem_CF");
 
     // create 8x8 thread blocks
     dim3 block_size;
@@ -566,16 +626,28 @@ int main(int argc, char* argv[])
         }
 
 
-        // 1T1CI for K-matrix
-        grid_size.x = p_basis->num;
-        grid_size.y = p_basis->num;
+        // use 1T1PI for K-matrix
+        grid_size.x = n_prim_basis;
+        grid_size.y = n_prim_basis;
 
-        cuda_mat_K_CI<<<grid_size, block_size>>>
+        cuda_mat_K_PI<<<grid_size, block_size>>>
             (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
              dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
-             p_basis->num, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_K, dev_mat_Q);
+             n_combi, n_prim_basis, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_K_PI, 
+             dev_mat_Q, dev_idx_PI, dev_idx_CF);
 
-        my_cuda_safe(cudaMemcpy(h_mat_K, dev_mat_K, n_CI_bytes, cudaMemcpyDeviceToHost),"mem_K");
+        my_cuda_safe(cudaMemcpy(h_mat_K_PI, dev_mat_K_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_K_PI");
+
+        for (int idx_i = 0; idx_i < n_combi; ++ idx_i) 
+        {
+            h_mat_K[idx_i] = 0.0;
+            int start_i = h_start_contr[idx_i];
+            int end_i   = h_end_contr[idx_i];
+            for (int i = start_i; i <= end_i; ++ i) 
+            {
+                h_mat_K[idx_i] += h_mat_K_PI[i];
+            }
+        }
 
 
         // use J and K matrix from GPU
