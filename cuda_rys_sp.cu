@@ -1453,15 +1453,46 @@ __device__ float cuda_Int1d(int i, int j, int k, int l,
   return ijkl;
 }
 
-__device__ float cuda_rys_coulomb_repulsion(float xa, float ya, float za, float norma, 
-                                            int la, int ma, int na, float alphaa, 
-                                            float xb, float yb, float zb, float normb, 
-                                            int lb, int mb, int nb, float alphab, 
-                                            float xc, float yc, float zc, float normc, 
-                                            int lc, int mc, int nc, float alphac, 
-                                            float xd, float yd, float zd, float normd, 
-                                            int ld, int md, int nd, float alphad)
+__device__ float cuda_rys_coulomb_repulsion(double *xlec, int ij16, int kl16)
 {
+  // download xyz, lmn, expon, and coef*norm
+  float xa = (float)xlec[ij16 + 0];
+  float ya = (float)xlec[ij16 + 1];
+  float za = (float)xlec[ij16 + 2];
+  int   la = (int)xlec[ij16 + 3];
+  int   ma = (int)xlec[ij16 + 4];
+  int   na = (int)xlec[ij16 + 5];
+  float alphaa = (float)xlec[ij16 + 6];
+  float norma  = (float)xlec[ij16 + 7];
+
+  float xb = (float)xlec[ij16 + 8];
+  float yb = (float)xlec[ij16 + 9];
+  float zb = (float)xlec[ij16 + 10];
+  int   lb = (int)xlec[ij16 + 11];
+  int   mb = (int)xlec[ij16 + 12];
+  int   nb = (int)xlec[ij16 + 13];
+  float alphab = (float)xlec[ij16 + 14];
+  float normb  = (float)xlec[ij16 + 15];
+
+  float xc = (float)xlec[kl16 + 0];
+  float yc = (float)xlec[kl16 + 1];
+  float zc = (float)xlec[kl16 + 2];
+  int   lc = (int)xlec[kl16 + 3];
+  int   mc = (int)xlec[kl16 + 4];
+  int   nc = (int)xlec[kl16 + 5];
+  float alphac = (float)xlec[kl16 + 6];
+  float normc  = (float)xlec[kl16 + 7];
+
+  float xd = (float)xlec[kl16 + 8];
+  float yd = (float)xlec[kl16 + 9];
+  float zd = (float)xlec[kl16 + 10];
+  int   ld = (int)xlec[kl16 + 11];
+  int   md = (int)xlec[kl16 + 12];
+  int   nd = (int)xlec[kl16 + 13];
+  float alphad = (float)xlec[kl16 + 14];
+  float normd  = (float)xlec[kl16 + 15];
+
+  // calculate primitive integral [ij|kl]
   int norder,i;
   float A,B,xp,yp,zp,xq,yq,zq,X,rho,sum,t,Ix,Iy,Iz;
   
@@ -1513,11 +1544,7 @@ __device__ float cuda_rys_coulomb_repulsion(float xa, float ya, float za, float 
 }
 
 
-__global__ void cuda_mat_J_PI(double *xa, double *ya, double *za, 
-                              int *la, int *ma, int *na, double *aexps, double *acoef, 
-                              double *xb, double *yb, double *zb, 
-                              int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
-                              int n_combi, int n_prim_combi,
+__global__ void cuda_mat_J_PI(double *xlec, int n_combi, int n_prim_combi,
                               double *mat_D, double *mat_J_PI, double *mat_Q, 
                               int *idx_CI, int *mat_scale)
 {
@@ -1539,8 +1566,7 @@ __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za,
     // initialize shared array
     elem_J_PI[thread_i][thread_k] = 0.0;
 
-    float xai[3] = {(float)xa[idx_i],(float)ya[idx_i],(float)za[idx_i]};
-    float xbi[3] = {(float)xb[idx_i],(float)yb[idx_i],(float)zb[idx_i]};
+    int i16 = i * 16;
 
     for (int k = thread_k; k < n_prim_combi; k += BLOCKSIZE)
     {
@@ -1548,33 +1574,9 @@ __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za,
 
         if (fabs(mat_Q[idx_i] * mat_Q[idx_k] * mat_D[idx_k]) < SCREEN_THR) { continue; }
 
-        float xak[3] = {(float)xa[idx_k],(float)ya[idx_k],(float)za[idx_k]};
-        float xbk[3] = {(float)xb[idx_k],(float)yb[idx_k],(float)zb[idx_k]};
+        int k16 = k * 16;
 
-        int lai[3] = {la[i],ma[i],na[i]};
-        int lbi[3] = {lb[i],mb[i],nb[i]};
-        float coef_ai = (float)acoef[i];
-        float exps_ai = (float)aexps[i];
-        float coef_bi = (float)bcoef[i];
-        float exps_bi = (float)bexps[i];
-
-        int lak[3] = {la[k],ma[k],na[k]};
-        int lbk[3] = {lb[k],mb[k],nb[k]};
-        float coef_ak = (float)acoef[k];
-        float exps_ak = (float)aexps[k];
-        float coef_bk = (float)bcoef[k];
-        float exps_bk = (float)bexps[k];
-
-        double this_eri;
-        this_eri = cuda_rys_coulomb_repulsion(
-                   xai[0],xai[1],xai[2],coef_ai,
-                   lai[0],lai[1],lai[2],exps_ai,
-                   xbi[0],xbi[1],xbi[2],coef_bi,
-                   lbi[0],lbi[1],lbi[2],exps_bi,
-                   xak[0],xak[1],xak[2],coef_ak,
-                   lak[0],lak[1],lak[2],exps_ak,
-                   xbk[0],xbk[1],xbk[2],coef_bk,
-                   lbk[0],lbk[1],lbk[2],exps_bk);
+        double this_eri = cuda_rys_coulomb_repulsion(xlec, i16, k16);
         
         // NOTE: mat_scale contains the 2.0 factor for non-diagonal elements
         elem_J_PI[thread_i][thread_k] += this_eri * mat_D[idx_k] * mat_scale[idx_k];
@@ -1593,11 +1595,7 @@ __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za,
 }
 
 
-__global__ void cuda_mat_K_PI(double *xa, double *ya, double *za, 
-                              int *la, int *ma, int *na, double *aexps, double *acoef, 
-                              double *xb, double *yb, double *zb, 
-                              int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
-                              int n_combi, int n_prim_basis,
+__global__ void cuda_mat_K_PI(double *xlec, int n_combi, int n_prim_basis,
                               double *mat_D, double *mat_K_PI, double *mat_Q, 
                               int *idx_PI, int *idx_CI)
 {
@@ -1623,16 +1621,8 @@ __global__ void cuda_mat_K_PI(double *xa, double *ya, double *za,
         if (-1 == ij) { ij = idx_PI[j*n_prim_basis+i]; }
         int idx_ij = idx_CI[ij];
 
-        float xaij[3] = {(float)xa[idx_ij],(float)ya[idx_ij],(float)za[idx_ij]};
-        float xbij[3] = {(float)xb[idx_ij],(float)yb[idx_ij],(float)zb[idx_ij]};
+        int ij16 = ij * 16;
 
-        int laij[3] = {la[ij],ma[ij],na[ij]};
-        int lbij[3] = {lb[ij],mb[ij],nb[ij]};
-        float coef_aij = (float)acoef[ij];
-        float exps_aij = (float)aexps[ij];
-        float coef_bij = (float)bcoef[ij];
-        float exps_bij = (float)bexps[ij];
-         
         for (int l = thread_l; l < n_prim_basis; l += BLOCKSIZE)
         {
             int kl = idx_PI[k*n_prim_basis+l];
@@ -1645,26 +1635,9 @@ __global__ void cuda_mat_K_PI(double *xa, double *ya, double *za,
 
             if (fabs(mat_Q[idx_ij] * mat_Q[idx_kl] * mat_D[idx_jl]) < SCREEN_THR) { continue; }
 
-            float xakl[3] = {(float)xa[idx_kl],(float)ya[idx_kl],(float)za[idx_kl]};
-            float xbkl[3] = {(float)xb[idx_kl],(float)yb[idx_kl],(float)zb[idx_kl]};
-         
-            int lakl[3] = {la[kl],ma[kl],na[kl]};
-            int lbkl[3] = {lb[kl],mb[kl],nb[kl]};
-            float coef_akl = (float)acoef[kl];
-            float exps_akl = (float)aexps[kl];
-            float coef_bkl = (float)bcoef[kl];
-            float exps_bkl = (float)bexps[kl];
-         
-            double this_eri;
-            this_eri = cuda_rys_coulomb_repulsion(
-                       xaij[0],xaij[1],xaij[2],coef_aij,
-                       laij[0],laij[1],laij[2],exps_aij,
-                       xbij[0],xbij[1],xbij[2],coef_bij,
-                       lbij[0],lbij[1],lbij[2],exps_bij,
-                       xakl[0],xakl[1],xakl[2],coef_akl,
-                       lakl[0],lakl[1],lakl[2],exps_akl,
-                       xbkl[0],xbkl[1],xbkl[2],coef_bkl,
-                       lbkl[0],lbkl[1],lbkl[2],exps_bkl);
+            int kl16 = kl * 16;
+
+            double this_eri = cuda_rys_coulomb_repulsion(xlec, ij16, kl16);
 
             // NOTE: not using 2.0 factor for non-diagonal elements
             elem_K_PI[thread_j][thread_l] += this_eri * mat_D[idx_jl];

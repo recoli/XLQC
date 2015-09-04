@@ -46,27 +46,13 @@ __device__ float cuda_Int1d(int i, int j,int k, int l,
                             float A, float B, float Px, float Qx,
                             float inv_t1, float B00, float B1, float B1p, 
                             float G[][MAXROOTS]);
-__device__ float cuda_rys_coulomb_repulsion(float xa,float ya,float za,float norma,
-                                            int la,int ma,int na,float alphaa,
-                                            float xb,float yb,float zb,float normb,
-                                            int lb,int mb,int nb,float alphab,
-                                            float xc,float yc,float zc,float normc,
-                                            int lc,int mc,int nc,float alphac,
-                                            float xd,float yd,float zd,float normd,
-                                            int ld,int md,int nd,float alphad);
 
-__global__ void cuda_mat_J_PI(double *xa, double *ya, double *za, 
-                              int *la, int *ma, int *na, double *aexps, double *acoef, 
-                              double *xb, double *yb, double *zb, 
-                              int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
-                              int n_combi, int n_prim_combi,
+__device__ float cuda_rys_coulomb_repulsion(double *xlec, int ij16, int kl16);
+
+__global__ void cuda_mat_J_PI(double *xlec, int n_combi, int n_prim_combi,
                               double *mat_D, double *mat_J_PI, double *mat_Q, 
                               int *idx_CI, int *mat_scale);
 
-__global__ void cuda_mat_K_PI(double *xa, double *ya, double *za, 
-                              int *la, int *ma, int *na, double *aexps, double *acoef, 
-                              double *xb, double *yb, double *zb, 
-                              int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
-                              int n_combi, int n_prim_basis,
-                              double *mat_D, double *mat_K_PI, double *mat_Q,
+__global__ void cuda_mat_K_PI(double *xlec, int n_combi, int n_prim_basis,
+                              double *mat_D, double *mat_K_PI, double *mat_Q, 
                               int *idx_PI, int *idx_CI);

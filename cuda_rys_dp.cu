@@ -26,6 +26,7 @@
 
 #include "cuda_rys_sp.h"
 #include "cuda_rys_dp.h"
+#include "typedef.h"
 
 __device__ void cuda_Roots_dp(int n, double X, double roots[], double weights[]){
   if (n <= 3)
@@ -1419,15 +1420,46 @@ __device__ double cuda_Int1d_dp(int i, int j, int k, int l,
   return ijkl;
 }
 
-__device__ double cuda_rys_coulomb_repulsion_dp(double xa,double ya,double za,double norma,
-                                                int la,int ma,int na,double alphaa,
-                                                double xb,double yb,double zb,double normb,
-                                                int lb,int mb,int nb,double alphab,
-                                                double xc,double yc,double zc,double normc,
-                                                int lc,int mc,int nc,double alphac,
-                                                double xd,double yd,double zd,double normd,
-                                                int ld,int md,int nd,double alphad)
+__device__ double cuda_rys_coulomb_repulsion_dp(double *xlec, int ij16, int kl16)
 {
+  // download xyz, lmn, expon, and coef*norm
+  double xa = xlec[ij16 + 0];
+  double ya = xlec[ij16 + 1];
+  double za = xlec[ij16 + 2];
+  int    la = (int)xlec[ij16 + 3];
+  int    ma = (int)xlec[ij16 + 4];
+  int    na = (int)xlec[ij16 + 5];
+  double alphaa = xlec[ij16 + 6];
+  double norma  = xlec[ij16 + 7];
+
+  double xb = xlec[ij16 + 8];
+  double yb = xlec[ij16 + 9];
+  double zb = xlec[ij16 + 10];
+  int    lb = (int)xlec[ij16 + 11];
+  int    mb = (int)xlec[ij16 + 12];
+  int    nb = (int)xlec[ij16 + 13];
+  double alphab = xlec[ij16 + 14];
+  double normb  = xlec[ij16 + 15];
+
+  double xc = xlec[kl16 + 0];
+  double yc = xlec[kl16 + 1];
+  double zc = xlec[kl16 + 2];
+  int    lc = (int)xlec[kl16 + 3];
+  int    mc = (int)xlec[kl16 + 4];
+  int    nc = (int)xlec[kl16 + 5];
+  double alphac = xlec[kl16 + 6];
+  double normc  = xlec[kl16 + 7];
+
+  double xd = xlec[kl16 + 8];
+  double yd = xlec[kl16 + 9];
+  double zd = xlec[kl16 + 10];
+  int    ld = (int)xlec[kl16 + 11];
+  int    md = (int)xlec[kl16 + 12];
+  int    nd = (int)xlec[kl16 + 13];
+  double alphad = xlec[kl16 + 14];
+  double normd  = xlec[kl16 + 15];
+
+  // calculate primitive integral [ij|kl]
   int norder,i;
   double A,B,xp,yp,zp,xq,yq,zq,X,rho,sum,t,Ix,Iy,Iz;
   
@@ -1479,60 +1511,115 @@ __device__ double cuda_rys_coulomb_repulsion_dp(double xa,double ya,double za,do
 }
 
 
-__global__ void cuda_rys_eri_2d_dp(double *xa, double *ya, double *za, 
-                                   int *la, int *ma, int *na, double *aexps, double *acoef, 
-                                   double *xb, double *yb, double *zb, 
-                                   int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
-                                   int n_combi, int *start_contr, int *end_contr, double *eri)
+__global__ void cuda_mat_J_PI_dp(double *xlec, int n_combi, int n_prim_combi,
+                                 double *mat_D, double *mat_J_PI, double *mat_Q, 
+                                 int *idx_CI, int *mat_scale)
 {
+    __shared__ double elem_J_PI[BLOCKSIZE][BLOCKSIZE];
+
+    int thread_i = threadIdx.x;
+    int thread_k = threadIdx.y;
+
     // do the usual computation separately in each dimension:
-    int idx_i = blockIdx.x * blockDim.x + threadIdx.x;
-    int idx_k = blockIdx.y * blockDim.y + threadIdx.y;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int idx_i = idx_CI[i];
 
     // avoid accessing out of bounds elements
-    if (idx_i >= n_combi || idx_k >= n_combi || idx_i < idx_k) { return; }
-    int index = idx_i * (idx_i + 1) / 2 + idx_k;
+    if (i >= n_prim_combi) { return; }
 
-    int start_i = start_contr[idx_i];
-    int end_i   = end_contr[idx_i];
-    int start_k = start_contr[idx_k];
-    int end_k   = end_contr[idx_k];
+    //int this_k = blockIdx.y * blockDim.y + threadIdx.y;
+    //if (this_k >= BLOCKSIZE) { return; }
 
-    double xai[3] = {xa[idx_i],ya[idx_i],za[idx_i]};
-    double xbi[3] = {xb[idx_i],yb[idx_i],zb[idx_i]};
-                                         
-    double xak[3] = {xa[idx_k],ya[idx_k],za[idx_k]};
-    double xbk[3] = {xb[idx_k],yb[idx_k],zb[idx_k]};
+    // initialize shared array
+    elem_J_PI[thread_i][thread_k] = 0.0;
 
-    double this_eri = 0.0;
-    for (int i = start_i; i <= end_i; ++ i)
+    int i16 = i * 16;
+
+    for (int k = thread_k; k < n_prim_combi; k += BLOCKSIZE)
     {
-        int lai[3] = {la[i],ma[i],na[i]};
-        int lbi[3] = {lb[i],mb[i],nb[i]};
-        double coef_ai = acoef[i];
-        double exps_ai = aexps[i];
-        double coef_bi = bcoef[i];
-        double exps_bi = bexps[i];
+        int idx_k = idx_CI[k];
 
-        for (int k = start_k; k <= end_k; ++ k)
+        if (fabs(mat_Q[idx_i] * mat_Q[idx_k] * mat_D[idx_k]) < SCREEN_THR) { continue; }
+
+        int k16 = k * 16;
+
+        double this_eri = cuda_rys_coulomb_repulsion_dp(xlec, i16, k16);
+        
+        // NOTE: mat_scale contains the 2.0 factor for non-diagonal elements
+        elem_J_PI[thread_i][thread_k] += this_eri * mat_D[idx_k] * mat_scale[idx_k];
+    }
+
+    __syncthreads();
+
+    if (0 == thread_k)
+    {
+        mat_J_PI[i] = 0.0; 
+        for (int t = 0; t < BLOCKSIZE; ++ t)
         {
-            int lak[3] = {la[k],ma[k],na[k]};
-            int lbk[3] = {lb[k],mb[k],nb[k]};
-            double coef_ak = acoef[k];
-            double exps_ak = aexps[k];
-            double coef_bk = bcoef[k];
-            double exps_bk = bexps[k];
-
-            this_eri += cuda_rys_coulomb_repulsion_dp(
-                        xai[0],xai[1],xai[2],coef_ai,
-                        lai[0],lai[1],lai[2],exps_ai,
-                        xbi[0],xbi[1],xbi[2],coef_bi,
-                        lbi[0],lbi[1],lbi[2],exps_bi,
-                        xak[0],xak[1],xak[2],coef_ak,
-                        lak[0],lak[1],lak[2],exps_ak,
-                        xbk[0],xbk[1],xbk[2],coef_bk,
-                        lbk[0],lbk[1],lbk[2],exps_bk);
+            mat_J_PI[i] += elem_J_PI[thread_i][t];
         }
     }
-    eri[index] = this_eri;
+}
+
+
+__global__ void cuda_mat_K_PI_dp(double *xlec, int n_combi, int n_prim_basis,
+                                 double *mat_D, double *mat_K_PI, double *mat_Q, 
+                                 int *idx_PI, int *idx_CI)
+{
+    __shared__ double elem_K_PI[BLOCKSIZE][BLOCKSIZE];
+
+    // do the usual computation separately in each dimension:
+    int i = blockIdx.x;
+    int k = blockIdx.y;
+
+    int thread_j = threadIdx.x;
+    int thread_l = threadIdx.y;
+
+    // avoid accessing out of bounds elements
+    int ik = idx_PI[i*n_prim_basis+k];
+    if (-1 == ik) { return; }
+
+    // initialize shared array
+    elem_K_PI[thread_j][thread_l] = 0.0;
+
+    for (int j = thread_j; j < n_prim_basis; j += BLOCKSIZE)
+    {
+        int ij = idx_PI[i*n_prim_basis+j];
+        if (-1 == ij) { ij = idx_PI[j*n_prim_basis+i]; }
+        int idx_ij = idx_CI[ij];
+
+        int ij16 = ij * 16;
+
+        for (int l = thread_l; l < n_prim_basis; l += BLOCKSIZE)
+        {
+            int kl = idx_PI[k*n_prim_basis+l];
+            if (-1 == kl) { kl = idx_PI[l*n_prim_basis+k]; }
+            int idx_kl = idx_CI[kl];
+
+            int jl = idx_PI[j*n_prim_basis+l];
+            if (-1 == jl) { jl = idx_PI[l*n_prim_basis+j]; }
+            int idx_jl = idx_CI[jl];
+
+            if (fabs(mat_Q[idx_ij] * mat_Q[idx_kl] * mat_D[idx_jl]) < SCREEN_THR) { continue; }
+
+            int kl16 = kl * 16;
+
+            double this_eri = cuda_rys_coulomb_repulsion_dp(xlec, ij16, kl16);
+
+            // NOTE: not using 2.0 factor for non-diagonal elements
+            elem_K_PI[thread_j][thread_l] += this_eri * mat_D[idx_jl];
+        }
+    }
+
+    __syncthreads();
+
+    if (0 == thread_j && 0 == thread_l)
+    {
+        mat_K_PI[ik] = 0.0; 
+        for (int t1 = 0; t1 < BLOCKSIZE; ++ t1) {
+            for (int t2 = 0; t2 < BLOCKSIZE; ++ t2) {
+                mat_K_PI[ik] += elem_K_PI[t1][t2];
+            }
+        }
+    }
 }

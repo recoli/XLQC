@@ -49,8 +49,13 @@ __device__ double cuda_rys_coulomb_repulsion_dp(double xa,double ya,double za,do
                                                 int lc,int mc,int nc,double alphac,
                                                 double xd,double yd,double zd,double normd,
                                                 int ld,int md,int nd,double alphad);
-__global__ void cuda_rys_eri_2d_dp(double *xa, double *ya, double *za, 
-                                   int *la, int *ma, int *na, double *aexps, double *acoef, 
-                                   double *xb, double *yb, double *zb, 
-                                   int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
-                                   int n_combi, int *start_contr, int *end_contr, double *eri);
+
+__device__ double cuda_rys_coulomb_repulsion_dp(double *xlec, int ij16, int kl16);
+
+__global__ void cuda_mat_J_PI_dp(double *xlec, int n_combi, int n_prim_combi,
+                                double *mat_D, double *mat_J_PI, double *mat_Q, 
+                                int *idx_CI, int *mat_scale);
+
+__global__ void cuda_mat_K_PI_dp(double *xlec, int n_combi, int n_prim_basis,
+                                 double *mat_D, double *mat_K_PI, double *mat_Q, 
+                                 int *idx_PI, int *idx_CI);

@@ -41,7 +41,7 @@
 #include "scf.h"
 
 #include "cuda_rys_sp.h"
-//#include "cuda_rys_dp.h"
+#include "cuda_rys_dp.h"
 
 int main(int argc, char* argv[])
 {
@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
     // use spherical harmonic d function?
     const int use_5d = 1;
     // use double precision?
-    //const int use_dp = 0;
+    const int use_dp = 1;
 
     Atom   *p_atom   = (Atom *)my_malloc(sizeof(Atom) * 1);
     Basis  *p_basis  = (Basis *)my_malloc(sizeof(Basis) * 1);
@@ -187,7 +187,6 @@ int main(int argc, char* argv[])
         n_prim_basis += p_basis->nprims[a];
     }
 
-    size_t n_PF_bytes_int  = sizeof(int) * n_prim_basis;
     size_t n_PF2_bytes_int = sizeof(int) * n_prim_basis * n_prim_basis;
 
     // idx_PI: an array of dimension n_prim_basis x n_prim_basis
@@ -242,26 +241,6 @@ int main(int argc, char* argv[])
     }
 
 
-    // idx_CF: an array of dimension n_prim_basis
-    // returns the index of contracted bf for a primitive bf
-    int *h_idx_CF = (int *)my_malloc(n_PF_bytes_int);
-    for (int a = 0; a < p_basis->num; ++ a)
-    {
-        int lena = p_basis->nprims[a];
-
-        int count_prim_a = 0;
-        for (int tmp = 0; tmp < a; ++ tmp)
-        {
-            count_prim_a += p_basis->nprims[tmp];
-        }
-
-        for (int i = 0; i < lena; ++ i)
-        {
-            h_idx_CF[count_prim_a + i] = a;
-        }
-    }
-
-
     // allocate memory for arrays on host
     // CI:  contracted integrals
     // PI:  primitive integrals
@@ -293,26 +272,7 @@ int main(int argc, char* argv[])
     }
 
 
-    double *h_xa = (double *)my_malloc(n_CI_bytes);
-    double *h_ya = (double *)my_malloc(n_CI_bytes);
-    double *h_za = (double *)my_malloc(n_CI_bytes);
-    double *h_xb = (double *)my_malloc(n_CI_bytes);
-    double *h_yb = (double *)my_malloc(n_CI_bytes);
-    double *h_zb = (double *)my_malloc(n_CI_bytes);
-
-    int *h_la = (int *)my_malloc(n_PI_bytes_int);
-    int *h_ma = (int *)my_malloc(n_PI_bytes_int);
-    int *h_na = (int *)my_malloc(n_PI_bytes_int);
-    int *h_lb = (int *)my_malloc(n_PI_bytes_int);
-    int *h_mb = (int *)my_malloc(n_PI_bytes_int);
-    int *h_nb = (int *)my_malloc(n_PI_bytes_int);
-
-    // note that 'anorm' is absorbed into 'acoef'
-    double *h_aexps = (double *)my_malloc(n_PI_bytes);
-    double *h_acoef = (double *)my_malloc(n_PI_bytes);
-    // note that 'bnorm' is absorbed into 'bcoef'
-    double *h_bexps = (double *)my_malloc(n_PI_bytes);
-    double *h_bcoef = (double *)my_malloc(n_PI_bytes);
+    double *h_xlec = (double *)my_malloc(n_PI_bytes * 16);
 
     int *start_contr = (int *)my_malloc(n_CI_bytes_int);
     int *end_contr   = (int *)my_malloc(n_CI_bytes_int);
@@ -341,16 +301,13 @@ int main(int argc, char* argv[])
     }
 
 
-
-
-
-
-
     // fill arrays on host
     // index_prim counts primitive integrals
     // index_contr counts contracted integrals
     int index_prim = 0;
     int index_contr = 0;
+
+    int index_xlec = 0;
 
     for (int a = 0; a < p_basis->num; ++ a)
     {
@@ -361,33 +318,29 @@ int main(int argc, char* argv[])
 
             start_contr[index_contr] = index_prim;
 
-            h_xa[index_contr] = p_basis->xbas[a];
-            h_ya[index_contr] = p_basis->ybas[a];
-            h_za[index_contr] = p_basis->zbas[a];
-
-            h_xb[index_contr] = p_basis->xbas[b];
-            h_yb[index_contr] = p_basis->ybas[b];
-            h_zb[index_contr] = p_basis->zbas[b];
-                            
             for (int i = 0; i < lena; ++ i)
             {
                 for (int j = 0; j < lenb; ++ j)
                 {
+                    h_xlec[index_xlec] = p_basis->xbas[a]; ++ index_xlec;
+                    h_xlec[index_xlec] = p_basis->ybas[a]; ++ index_xlec;
+                    h_xlec[index_xlec] = p_basis->zbas[a]; ++ index_xlec;
+                    h_xlec[index_xlec] = (double)p_basis->lx[a][i]; ++ index_xlec;
+                    h_xlec[index_xlec] = (double)p_basis->ly[a][i]; ++ index_xlec;
+                    h_xlec[index_xlec] = (double)p_basis->lz[a][i]; ++ index_xlec;
+                    h_xlec[index_xlec] = p_basis->expon[a][i]; ++ index_xlec;
+                    h_xlec[index_xlec] = p_basis->coef[a][i] * p_basis->norm[a][i];  ++ index_xlec;
                     // note that 'anorm' is absorbed into 'acoef'
-                    h_aexps[index_prim] = p_basis->expon[a][i];
-                    h_acoef[index_prim] = p_basis->coef[a][i] * p_basis->norm[a][i];
 
+                    h_xlec[index_xlec] = p_basis->xbas[b]; ++ index_xlec;
+                    h_xlec[index_xlec] = p_basis->ybas[b]; ++ index_xlec;
+                    h_xlec[index_xlec] = p_basis->zbas[b]; ++ index_xlec;
+                    h_xlec[index_xlec] = (double)p_basis->lx[b][j]; ++ index_xlec;
+                    h_xlec[index_xlec] = (double)p_basis->ly[b][j]; ++ index_xlec;
+                    h_xlec[index_xlec] = (double)p_basis->lz[b][j]; ++ index_xlec;
+                    h_xlec[index_xlec] = p_basis->expon[b][j]; ++ index_xlec;
+                    h_xlec[index_xlec] = p_basis->coef[b][j] * p_basis->norm[b][j]; ++ index_xlec;
                     // note that 'bnorm' is absorbed into 'bcoef'
-                    h_bexps[index_prim] = p_basis->expon[b][j];
-                    h_bcoef[index_prim] = p_basis->coef[b][j] * p_basis->norm[b][j];
-
-                    h_la[index_prim] = p_basis->lx[a][i];
-                    h_ma[index_prim] = p_basis->ly[a][i];
-                    h_na[index_prim] = p_basis->lz[a][i];
-
-                    h_lb[index_prim] = p_basis->lx[b][j];
-                    h_mb[index_prim] = p_basis->ly[b][j];
-                    h_nb[index_prim] = p_basis->lz[b][j];
 
                     ++ index_prim;
                 }
@@ -408,83 +361,33 @@ int main(int argc, char* argv[])
 
 
     // initialize arrays on device
-    double *dev_xa, *dev_ya, *dev_za;
-    double *dev_xb, *dev_yb, *dev_zb;
-    int    *dev_la, *dev_ma, *dev_na;
-    int    *dev_lb, *dev_mb, *dev_nb;
-    double *dev_aexps, *dev_acoef;
-    double *dev_bexps, *dev_bcoef;
-
-    double *dev_mat_D, *dev_mat_Q, *dev_mat_J_PI, *dev_mat_K_PI;
+    double *dev_xlec;
     int    *dev_mat_scale;
-
-    int *dev_idx_CI, *dev_idx_PI, *dev_idx_CF;
+    double *dev_mat_D, *dev_mat_Q, *dev_mat_J_PI, *dev_mat_K_PI;
+    int    *dev_idx_CI, *dev_idx_PI;
 
     // allocate memories for arrays on device
-    /*
     fprintf(stdout, "Mem_on_Device = %zu MB\n",
-            (n_CI_bytes*9 + n_PI_bytes_int*6 + n_PI_bytes*1 + n_CI_bytes_int*2) / 1000000);
-    */
+            (n_PI_bytes*18 + n_PI_bytes_int + n_CI_bytes*3 + n_PF2_bytes_int) / 1000000);
 
-    my_cuda_safe(cudaMalloc((void**)&dev_xa, n_CI_bytes),"alloc_xa");
-    my_cuda_safe(cudaMalloc((void**)&dev_ya, n_CI_bytes),"alloc_ya");
-    my_cuda_safe(cudaMalloc((void**)&dev_za, n_CI_bytes),"alloc_za");
-    my_cuda_safe(cudaMalloc((void**)&dev_xb, n_CI_bytes),"alloc_xb");
-    my_cuda_safe(cudaMalloc((void**)&dev_yb, n_CI_bytes),"alloc_yb");
-    my_cuda_safe(cudaMalloc((void**)&dev_zb, n_CI_bytes),"alloc_zb");
-
-    my_cuda_safe(cudaMalloc((void**)&dev_la, n_PI_bytes_int),"alloc_la");
-    my_cuda_safe(cudaMalloc((void**)&dev_ma, n_PI_bytes_int),"alloc_ma");
-    my_cuda_safe(cudaMalloc((void**)&dev_na, n_PI_bytes_int),"alloc_na");
-    my_cuda_safe(cudaMalloc((void**)&dev_lb, n_PI_bytes_int),"alloc_lb");
-    my_cuda_safe(cudaMalloc((void**)&dev_mb, n_PI_bytes_int),"alloc_mb");
-    my_cuda_safe(cudaMalloc((void**)&dev_nb, n_PI_bytes_int),"alloc_nb");
-
-    my_cuda_safe(cudaMalloc((void**)&dev_aexps, n_PI_bytes),"alloc_aexps");
-    my_cuda_safe(cudaMalloc((void**)&dev_acoef, n_PI_bytes),"alloc_acoef");
-    my_cuda_safe(cudaMalloc((void**)&dev_bexps, n_PI_bytes),"alloc_bexps");
-    my_cuda_safe(cudaMalloc((void**)&dev_bcoef, n_PI_bytes),"alloc_bcoef");
+    my_cuda_safe(cudaMalloc((void**)&dev_xlec, n_PI_bytes * 16),"alloc_xlec");
+    my_cuda_safe(cudaMalloc((void**)&dev_mat_scale, n_CI_bytes_int),"alloc_scale");
 
     my_cuda_safe(cudaMalloc((void**)&dev_mat_D, n_CI_bytes),"alloc_D");
     my_cuda_safe(cudaMalloc((void**)&dev_mat_Q, n_CI_bytes),"alloc_Q");
-
-    my_cuda_safe(cudaMalloc((void**)&dev_mat_scale, n_CI_bytes_int),"alloc_scale");
-
     my_cuda_safe(cudaMalloc((void**)&dev_mat_J_PI, n_PI_bytes),"alloc_J_PI");
     my_cuda_safe(cudaMalloc((void**)&dev_mat_K_PI, n_PI_bytes),"alloc_K_PI");
 
+    my_cuda_safe(cudaMalloc((void**)&dev_idx_CI, n_PI_bytes_int),"alloc_idxCI");
     my_cuda_safe(cudaMalloc((void**)&dev_idx_PI, n_PF2_bytes_int),"alloc_idxPI");
-    my_cuda_safe(cudaMalloc((void**)&dev_idx_CF, n_PF_bytes_int), "alloc_idxCF");
-
-    my_cuda_safe(cudaMalloc((void**)&dev_idx_CI, n_PI_bytes_int),"alloc_ed");
 
 
     // copy data from host to device
-    my_cuda_safe(cudaMemcpy(dev_xa, h_xa, n_CI_bytes, cudaMemcpyHostToDevice),"mem_xa");
-    my_cuda_safe(cudaMemcpy(dev_ya, h_ya, n_CI_bytes, cudaMemcpyHostToDevice),"mem_ya");
-    my_cuda_safe(cudaMemcpy(dev_za, h_za, n_CI_bytes, cudaMemcpyHostToDevice),"mem_za");
-    my_cuda_safe(cudaMemcpy(dev_xb, h_xb, n_CI_bytes, cudaMemcpyHostToDevice),"mem_xb");
-    my_cuda_safe(cudaMemcpy(dev_yb, h_yb, n_CI_bytes, cudaMemcpyHostToDevice),"mem_yb");
-    my_cuda_safe(cudaMemcpy(dev_zb, h_zb, n_CI_bytes, cudaMemcpyHostToDevice),"mem_zb");
-
-    my_cuda_safe(cudaMemcpy(dev_la, h_la, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_la");
-    my_cuda_safe(cudaMemcpy(dev_ma, h_ma, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_ma");
-    my_cuda_safe(cudaMemcpy(dev_na, h_na, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_na");
-    my_cuda_safe(cudaMemcpy(dev_lb, h_lb, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_lb");
-    my_cuda_safe(cudaMemcpy(dev_mb, h_mb, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_mb");
-    my_cuda_safe(cudaMemcpy(dev_nb, h_nb, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_nb");
-
-    my_cuda_safe(cudaMemcpy(dev_aexps, h_aexps, n_PI_bytes, cudaMemcpyHostToDevice),"mem_ae");
-    my_cuda_safe(cudaMemcpy(dev_acoef, h_acoef, n_PI_bytes, cudaMemcpyHostToDevice),"mem_ac");
-    my_cuda_safe(cudaMemcpy(dev_bexps, h_bexps, n_PI_bytes, cudaMemcpyHostToDevice),"mem_be");
-    my_cuda_safe(cudaMemcpy(dev_bcoef, h_bcoef, n_PI_bytes, cudaMemcpyHostToDevice),"mem_bc");
-
+    my_cuda_safe(cudaMemcpy(dev_xlec, h_xlec, n_PI_bytes * 16, cudaMemcpyHostToDevice),"mem_xlec");
     my_cuda_safe(cudaMemcpy(dev_mat_scale, h_mat_scale, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_scale");
 
-    my_cuda_safe(cudaMemcpy(dev_idx_PI, h_idx_PI, n_PF2_bytes_int, cudaMemcpyHostToDevice),"mem_idxPI");
-    my_cuda_safe(cudaMemcpy(dev_idx_CF, h_idx_CF, n_PF_bytes_int,  cudaMemcpyHostToDevice),"mem_idxCF");
-
     my_cuda_safe(cudaMemcpy(dev_idx_CI, h_idx_CI, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_idxCI");
+    my_cuda_safe(cudaMemcpy(dev_idx_PI, h_idx_PI, n_PF2_bytes_int, cudaMemcpyHostToDevice),"mem_idxPI");
 
 
     // create 8x8 thread blocks
@@ -616,7 +519,6 @@ int main(int argc, char* argv[])
         clock_t t2,t3;
         t2 = clock();
 
-
         // copy density matrix to device
         for (int a = 0; a < p_basis->num; ++ a) {
             for (int b = 0; b <= a; ++ b) {
@@ -625,16 +527,19 @@ int main(int argc, char* argv[])
         }
         my_cuda_safe(cudaMemcpy(dev_mat_D, h_mat_D, n_CI_bytes, cudaMemcpyHostToDevice),"mem_D");
 
-
         // use 1T1PI for J-matrix
         grid_size.x = n_prim_combi / block_size.x + (n_prim_combi % block_size.x ? 1 : 0);
         grid_size.y = 1;
     
-        cuda_mat_J_PI<<<grid_size, block_size>>>
-            (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
-             dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
-             n_combi, n_prim_combi, dev_mat_D, dev_mat_J_PI, 
-             dev_mat_Q, dev_idx_CI, dev_mat_scale);
+        if (use_dp) {
+            cuda_mat_J_PI_dp<<<grid_size, block_size>>>
+                (dev_xlec, n_combi, n_prim_combi, dev_mat_D, dev_mat_J_PI, 
+                 dev_mat_Q, dev_idx_CI, dev_mat_scale);
+        } else {
+            cuda_mat_J_PI<<<grid_size, block_size>>>
+                (dev_xlec, n_combi, n_prim_combi, dev_mat_D, dev_mat_J_PI, 
+                 dev_mat_Q, dev_idx_CI, dev_mat_scale);
+        }
 
         my_cuda_safe(cudaMemcpy(h_mat_J_PI, dev_mat_J_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_J_PI");
 
@@ -645,21 +550,23 @@ int main(int argc, char* argv[])
             }
         }
 
-
         t3 = clock();
         time_in_sec = (t3 - t2) / (double)CLOCKS_PER_SEC;
         time_mat_J += time_in_sec;
-
 
         // use 1T1PI for K-matrix
         grid_size.x = n_prim_basis;
         grid_size.y = n_prim_basis;
 
-        cuda_mat_K_PI<<<grid_size, block_size>>>
-            (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
-             dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
-             n_combi, n_prim_basis, dev_mat_D, dev_mat_K_PI, 
-             dev_mat_Q, dev_idx_PI, dev_idx_CI);
+        if (use_dp) {
+            cuda_mat_K_PI_dp<<<grid_size, block_size>>>
+                (dev_xlec, n_combi, n_prim_basis, dev_mat_D, dev_mat_K_PI, 
+                 dev_mat_Q, dev_idx_PI, dev_idx_CI);
+        } else {
+            cuda_mat_K_PI<<<grid_size, block_size>>>
+                (dev_xlec, n_combi, n_prim_basis, dev_mat_D, dev_mat_K_PI, 
+                 dev_mat_Q, dev_idx_PI, dev_idx_CI);
+        }
 
         my_cuda_safe(cudaMemcpy(h_mat_K_PI, dev_mat_K_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_K_PI");
 
@@ -670,7 +577,6 @@ int main(int argc, char* argv[])
             }
         }
 
-
         // use J and K matrix from GPU
         for (int a = 0; a < p_basis->num; ++ a) {
             for (int b = 0; b < p_basis->num; ++ b) {
@@ -678,7 +584,6 @@ int main(int argc, char* argv[])
                 gsl_matrix_set(K,a,b,h_mat_K[ij2intindex(a,b)]);
             }
         }
-
 
         t2 = clock();
         time_in_sec = (t2 - t3) / (double)CLOCKS_PER_SEC;
