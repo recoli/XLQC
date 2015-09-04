@@ -472,6 +472,12 @@ int main(int argc, char* argv[])
     Fock_to_Coef(p_basis->num, Fock, S_invsqrt, Coef, emo);
     Coef_to_Dens(p_basis->num, n_occ, Coef, D_prev);
 
+    gsl_matrix *D_diff = gsl_matrix_alloc(p_basis->num, p_basis->num);
+    gsl_matrix_memcpy(D_diff, D_prev);
+
+    gsl_matrix *Fock_prev = gsl_matrix_alloc(p_basis->num, p_basis->num);
+    gsl_matrix_memcpy(Fock_prev, Fock);
+
 
     // DIIS error and Fock matrices
     double ***diis_err  = (double ***)my_malloc(sizeof(double **) * MAX_DIIS_DIM);
@@ -524,6 +530,11 @@ int main(int argc, char* argv[])
         // compute new density matrix
 
 
+        // when iter > 0, use incremental Fock matrix formation and DIIS
+        int use_incr_fock = iter;
+        int use_diis      = iter;
+
+
         // timer for J-matrix
         clock_t t2,t3;
         t2 = clock();
@@ -531,7 +542,8 @@ int main(int argc, char* argv[])
         // copy density matrix to device
         for (int a = 0; a < p_basis->num; ++ a) {
             for (int b = 0; b <= a; ++ b) {
-                h_mat_D[ij2intindex(a,b)] = gsl_matrix_get(D_prev,a,b);
+                if (use_incr_fock) { h_mat_D[ij2intindex(a,b)] = gsl_matrix_get(D_diff,a,b); }
+                else               { h_mat_D[ij2intindex(a,b)] = gsl_matrix_get(D_prev,a,b); }
             }
         }
         my_cuda_safe(cudaMemcpy(dev_mat_D, h_mat_D, n_CI_bytes, cudaMemcpyHostToDevice),"mem_D");
@@ -601,10 +613,15 @@ int main(int argc, char* argv[])
         printf("K:\n"); my_print_matrix(K);
 #endif
 
-        form_Fock(p_basis->num, H_core, J, K, Fock);
+        if (use_incr_fock) { form_Fock(p_basis->num, Fock_prev, J, K, Fock); }
+        else               { form_Fock(p_basis->num, H_core, J, K, Fock); }
+
+        // save Fock_prev at this point, so as not to mix with DIIS
+        gsl_matrix_memcpy(Fock_prev, Fock);
+
 
         // DIIS
-        if (iter > 0)
+        if (use_diis)
         {
             update_Fock_DIIS(&diis_dim, &diis_index, &delta_DIIS, 
                 Fock, D_prev, S, p_basis, diis_err, diis_Fock);
@@ -635,6 +652,8 @@ int main(int argc, char* argv[])
                 double dd = gsl_matrix_get(D, mu, nu) - 
                             gsl_matrix_get(D_prev, mu, nu);
                 rms_D += dd * dd;
+
+                gsl_matrix_set(D_diff, mu, nu, dd);
             }
         }
         rms_D = sqrt(rms_D);
@@ -738,6 +757,9 @@ int main(int argc, char* argv[])
     gsl_matrix_free(Coef);
     gsl_matrix_free(D);
     gsl_vector_free(emo);
+
+    gsl_matrix_free(D_diff);
+    gsl_matrix_free(Fock_prev);
 
     gsl_matrix_free(J);
     gsl_matrix_free(K);
