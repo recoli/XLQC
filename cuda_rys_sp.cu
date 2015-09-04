@@ -1517,8 +1517,9 @@ __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za,
                               int *la, int *ma, int *na, double *aexps, double *acoef, 
                               double *xb, double *yb, double *zb, 
                               int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
-                              int n_combi, int n_prim_combi, int *start_contr, int *end_contr, 
-                              double *mat_D, double *mat_J_PI, double *mat_Q, int *idx_CI)
+                              int n_combi, int n_prim_combi,
+                              double *mat_D, double *mat_J_PI, double *mat_Q, 
+                              int *idx_CI, int *mat_scale)
 {
     __shared__ double elem_J_PI[BLOCKSIZE][BLOCKSIZE];
 
@@ -1575,8 +1576,8 @@ __global__ void cuda_mat_J_PI(double *xa, double *ya, double *za,
                    xbk[0],xbk[1],xbk[2],coef_bk,
                    lbk[0],lbk[1],lbk[2],exps_bk);
         
-        // NOTE: mat_D already contains the 2.0 factor for non-diagonal elements
-        elem_J_PI[thread_i][thread_k] += this_eri * mat_D[idx_k];
+        // NOTE: mat_scale contains the 2.0 factor for non-diagonal elements
+        elem_J_PI[thread_i][thread_k] += this_eri * mat_D[idx_k] * mat_scale[idx_k];
     }
 
     __syncthreads();
@@ -1596,9 +1597,9 @@ __global__ void cuda_mat_K_PI(double *xa, double *ya, double *za,
                               int *la, int *ma, int *na, double *aexps, double *acoef, 
                               double *xb, double *yb, double *zb, 
                               int *lb, int *mb, int *nb, double *bexps, double *bcoef, 
-                              int n_combi, int n_prim_basis, int *start_contr, int *end_contr, 
+                              int n_combi, int n_prim_basis,
                               double *mat_D, double *mat_K_PI, double *mat_Q, 
-                              int *idx_PI, int *idx_CF, int *idx_CI)
+                              int *idx_PI, int *idx_CI)
 {
     __shared__ double elem_K_PI[BLOCKSIZE][BLOCKSIZE];
 
@@ -1665,9 +1666,7 @@ __global__ void cuda_mat_K_PI(double *xa, double *ya, double *za,
                        xbkl[0],xbkl[1],xbkl[2],coef_bkl,
                        lbkl[0],lbkl[1],lbkl[2],exps_bkl);
 
-            // NOTE: mat_D already contains the 2.0 factor for non-diagonal elements
-            // but we do not need this factor for K-matrix
-            if (idx_CF[j] != idx_CF[l]) { this_eri *= 0.5; }
+            // NOTE: not using 2.0 factor for non-diagonal elements
             elem_K_PI[thread_j][thread_l] += this_eri * mat_D[idx_jl];
         }
     }

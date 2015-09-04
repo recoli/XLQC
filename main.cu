@@ -50,12 +50,13 @@ int main(int argc, char* argv[])
     // initialize timer
     clock_t t0, t1;
     double  time_in_sec, time_total;
-    double  time_mat_J;
+    double  time_mat_J, time_mat_K;
 
     t0 = clock();
     std::string time_txt ("");
     time_total = 0.0;
     time_mat_J = 0.0;
+    time_mat_K = 0.0;
 
     // use spherical harmonic d function?
     const int use_5d = 1;
@@ -313,8 +314,8 @@ int main(int argc, char* argv[])
     double *h_bexps = (double *)my_malloc(n_PI_bytes);
     double *h_bcoef = (double *)my_malloc(n_PI_bytes);
 
-    int *h_start_contr = (int *)my_malloc(n_CI_bytes_int);
-    int *h_end_contr   = (int *)my_malloc(n_CI_bytes_int);
+    int *start_contr = (int *)my_malloc(n_CI_bytes_int);
+    int *end_contr   = (int *)my_malloc(n_CI_bytes_int);
 
     // D: density matrix
     // J: Coulomb matrix
@@ -330,6 +331,21 @@ int main(int argc, char* argv[])
     double *h_mat_K_PI = (double *)my_malloc(n_PI_bytes);
 
 
+    // mat_scale: doubling off-diagonal elements of D
+    // This is convenient for J-matrix formation
+    int *h_mat_scale = (int *)my_malloc(n_CI_bytes_int);
+    for (int a = 0; a < p_basis->num; ++ a) {
+        for (int b = 0; b <= a; ++ b) {
+            h_mat_scale[ij2intindex(a,b)] = (a == b ? 1 : 2);
+        }
+    }
+
+
+
+
+
+
+
     // fill arrays on host
     // index_prim counts primitive integrals
     // index_contr counts contracted integrals
@@ -343,7 +359,7 @@ int main(int argc, char* argv[])
         {
             int lenb = p_basis->nprims[b];
 
-            h_start_contr[index_contr] = index_prim;
+            start_contr[index_contr] = index_prim;
 
             h_xa[index_contr] = p_basis->xbas[a];
             h_ya[index_contr] = p_basis->ybas[a];
@@ -377,7 +393,7 @@ int main(int argc, char* argv[])
                 }
             }
 
-            h_end_contr[index_contr] = index_prim - 1;
+            end_contr[index_contr] = index_prim - 1;
 
             ++ index_contr;
         }
@@ -399,9 +415,8 @@ int main(int argc, char* argv[])
     double *dev_aexps, *dev_acoef;
     double *dev_bexps, *dev_bcoef;
 
-    int *dev_start_contr, *dev_end_contr;
-
     double *dev_mat_D, *dev_mat_Q, *dev_mat_J_PI, *dev_mat_K_PI;
+    int    *dev_mat_scale;
 
     int *dev_idx_CI, *dev_idx_PI, *dev_idx_CF;
 
@@ -430,11 +445,10 @@ int main(int argc, char* argv[])
     my_cuda_safe(cudaMalloc((void**)&dev_bexps, n_PI_bytes),"alloc_bexps");
     my_cuda_safe(cudaMalloc((void**)&dev_bcoef, n_PI_bytes),"alloc_bcoef");
 
-    my_cuda_safe(cudaMalloc((void**)&dev_start_contr, n_CI_bytes_int),"alloc_st");
-    my_cuda_safe(cudaMalloc((void**)&dev_end_contr,   n_CI_bytes_int),"alloc_ed");
-
     my_cuda_safe(cudaMalloc((void**)&dev_mat_D, n_CI_bytes),"alloc_D");
     my_cuda_safe(cudaMalloc((void**)&dev_mat_Q, n_CI_bytes),"alloc_Q");
+
+    my_cuda_safe(cudaMalloc((void**)&dev_mat_scale, n_CI_bytes_int),"alloc_scale");
 
     my_cuda_safe(cudaMalloc((void**)&dev_mat_J_PI, n_PI_bytes),"alloc_J_PI");
     my_cuda_safe(cudaMalloc((void**)&dev_mat_K_PI, n_PI_bytes),"alloc_K_PI");
@@ -465,8 +479,7 @@ int main(int argc, char* argv[])
     my_cuda_safe(cudaMemcpy(dev_bexps, h_bexps, n_PI_bytes, cudaMemcpyHostToDevice),"mem_be");
     my_cuda_safe(cudaMemcpy(dev_bcoef, h_bcoef, n_PI_bytes, cudaMemcpyHostToDevice),"mem_bc");
 
-    my_cuda_safe(cudaMemcpy(dev_start_contr, h_start_contr, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_start");
-    my_cuda_safe(cudaMemcpy(dev_end_contr,   h_end_contr,   n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_end");
+    my_cuda_safe(cudaMemcpy(dev_mat_scale, h_mat_scale, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_scale");
 
     my_cuda_safe(cudaMemcpy(dev_idx_PI, h_idx_PI, n_PF2_bytes_int, cudaMemcpyHostToDevice),"mem_idxPI");
     my_cuda_safe(cudaMemcpy(dev_idx_CF, h_idx_CF, n_PF_bytes_int,  cudaMemcpyHostToDevice),"mem_idxCF");
@@ -604,14 +617,12 @@ int main(int argc, char* argv[])
         t2 = clock();
 
 
-        // NOTE: h_mat_D and dev_mat_D already contains the 2.0 factor for non-diagonal elements
-        // This is convenient for J-matrix formation
+        // copy density matrix to device
         for (int a = 0; a < p_basis->num; ++ a) {
             for (int b = 0; b <= a; ++ b) {
-                h_mat_D[ij2intindex(a,b)] = gsl_matrix_get(D_prev,a,b) * (a == b ? 1.0 : 2.0);
+                h_mat_D[ij2intindex(a,b)] = gsl_matrix_get(D_prev,a,b);
             }
         }
-
         my_cuda_safe(cudaMemcpy(dev_mat_D, h_mat_D, n_CI_bytes, cudaMemcpyHostToDevice),"mem_D");
 
 
@@ -622,21 +633,22 @@ int main(int argc, char* argv[])
         cuda_mat_J_PI<<<grid_size, block_size>>>
             (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
              dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
-             n_combi, n_prim_combi, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_J_PI, 
-             dev_mat_Q, dev_idx_CI);
+             n_combi, n_prim_combi, dev_mat_D, dev_mat_J_PI, 
+             dev_mat_Q, dev_idx_CI, dev_mat_scale);
 
         my_cuda_safe(cudaMemcpy(h_mat_J_PI, dev_mat_J_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_J_PI");
 
-        for (int idx_i = 0; idx_i < n_combi; ++ idx_i) 
-        {
+        for (int idx_i = 0; idx_i < n_combi; ++ idx_i) {
             h_mat_J[idx_i] = 0.0;
-            int start_i = h_start_contr[idx_i];
-            int end_i   = h_end_contr[idx_i];
-            for (int i = start_i; i <= end_i; ++ i) 
-            {
+            for (int i = start_contr[idx_i]; i <= end_contr[idx_i]; ++ i) {
                 h_mat_J[idx_i] += h_mat_J_PI[i];
             }
         }
+
+
+        t3 = clock();
+        time_in_sec = (t3 - t2) / (double)CLOCKS_PER_SEC;
+        time_mat_J += time_in_sec;
 
 
         // use 1T1PI for K-matrix
@@ -646,18 +658,14 @@ int main(int argc, char* argv[])
         cuda_mat_K_PI<<<grid_size, block_size>>>
             (dev_xa,dev_ya,dev_za, dev_la,dev_ma,dev_na, dev_aexps,dev_acoef,
              dev_xb,dev_yb,dev_zb, dev_lb,dev_mb,dev_nb, dev_bexps,dev_bcoef,
-             n_combi, n_prim_basis, dev_start_contr, dev_end_contr, dev_mat_D, dev_mat_K_PI, 
-             dev_mat_Q, dev_idx_PI, dev_idx_CF, dev_idx_CI);
+             n_combi, n_prim_basis, dev_mat_D, dev_mat_K_PI, 
+             dev_mat_Q, dev_idx_PI, dev_idx_CI);
 
         my_cuda_safe(cudaMemcpy(h_mat_K_PI, dev_mat_K_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_K_PI");
 
-        for (int idx_i = 0; idx_i < n_combi; ++ idx_i) 
-        {
+        for (int idx_i = 0; idx_i < n_combi; ++ idx_i) {
             h_mat_K[idx_i] = 0.0;
-            int start_i = h_start_contr[idx_i];
-            int end_i   = h_end_contr[idx_i];
-            for (int i = start_i; i <= end_i; ++ i) 
-            {
+            for (int i = start_contr[idx_i]; i <= end_contr[idx_i]; ++ i) {
                 h_mat_K[idx_i] += h_mat_K_PI[i];
             }
         }
@@ -666,16 +674,15 @@ int main(int argc, char* argv[])
         // use J and K matrix from GPU
         for (int a = 0; a < p_basis->num; ++ a) {
             for (int b = 0; b < p_basis->num; ++ b) {
-                double Jab = h_mat_J[ij2intindex(a,b)];
-                double Kab = h_mat_K[ij2intindex(a,b)];
-                gsl_matrix_set(J,a,b,Jab);
-                gsl_matrix_set(K,a,b,Kab);
+                gsl_matrix_set(J,a,b,h_mat_J[ij2intindex(a,b)]);
+                gsl_matrix_set(K,a,b,h_mat_K[ij2intindex(a,b)]);
             }
         }
 
-        t3 = clock();
-        time_in_sec = (t3 - t2) / (double)CLOCKS_PER_SEC;
-        time_mat_J += time_in_sec;
+
+        t2 = clock();
+        time_in_sec = (t2 - t3) / (double)CLOCKS_PER_SEC;
+        time_mat_K += time_in_sec;
 
 
 #ifdef DEBUG
@@ -841,7 +848,8 @@ int main(int argc, char* argv[])
     std::cout << time_txt;
     std::cout << "Total time used " << time_total << " sec\n";
 
-    std::cout << "MatJK time used " << time_mat_J << " sec\n";
+    std::cout << "Mat_J time used " << time_mat_J << " sec\n";
+    std::cout << "Mat_K time used " << time_mat_K << " sec\n";
 
 
     //====== the end of program ========
