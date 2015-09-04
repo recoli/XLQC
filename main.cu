@@ -47,6 +47,20 @@ int main(int argc, char* argv[])
 {
     cudaFree(0);
 
+    // use spherical harmonic d function?
+    int use_5d = 1;
+    // use double precision?
+    int use_dp = 1;
+
+    if (argc > 1) {
+        for (int i = 1; i < argc; ++ i) {
+            if (0 == strcmp(argv[i],"sp")) { use_dp = 0; }
+            if (0 == strcmp(argv[i],"dp")) { use_dp = 1; }
+            if (0 == strcmp(argv[i],"6d")) { use_5d = 0; }
+            if (0 == strcmp(argv[i],"5d")) { use_5d = 1; }
+        }
+    }
+
     // initialize timer
     clock_t t0, t1;
     double  time_in_sec, time_total;
@@ -57,11 +71,6 @@ int main(int argc, char* argv[])
     time_total = 0.0;
     time_mat_J = 0.0;
     time_mat_K = 0.0;
-
-    // use spherical harmonic d function?
-    const int use_5d = 1;
-    // use double precision?
-    const int use_dp = 1;
 
     Atom   *p_atom   = (Atom *)my_malloc(sizeof(Atom) * 1);
     Basis  *p_basis  = (Basis *)my_malloc(sizeof(Basis) * 1);
@@ -543,13 +552,6 @@ int main(int argc, char* argv[])
 
         my_cuda_safe(cudaMemcpy(h_mat_J_PI, dev_mat_J_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_J_PI");
 
-        for (int idx_i = 0; idx_i < n_combi; ++ idx_i) {
-            h_mat_J[idx_i] = 0.0;
-            for (int i = start_contr[idx_i]; i <= end_contr[idx_i]; ++ i) {
-                h_mat_J[idx_i] += h_mat_J_PI[i];
-            }
-        }
-
         t3 = clock();
         time_in_sec = (t3 - t2) / (double)CLOCKS_PER_SEC;
         time_mat_J += time_in_sec;
@@ -570,18 +572,22 @@ int main(int argc, char* argv[])
 
         my_cuda_safe(cudaMemcpy(h_mat_K_PI, dev_mat_K_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_K_PI");
 
+        // gather J and K matrices from PI to CI
         for (int idx_i = 0; idx_i < n_combi; ++ idx_i) {
+            h_mat_J[idx_i] = 0.0;
             h_mat_K[idx_i] = 0.0;
             for (int i = start_contr[idx_i]; i <= end_contr[idx_i]; ++ i) {
                 h_mat_K[idx_i] += h_mat_K_PI[i];
+                h_mat_J[idx_i] += h_mat_J_PI[i];
             }
         }
 
         // use J and K matrix from GPU
         for (int a = 0; a < p_basis->num; ++ a) {
             for (int b = 0; b < p_basis->num; ++ b) {
-                gsl_matrix_set(J,a,b,h_mat_J[ij2intindex(a,b)]);
-                gsl_matrix_set(K,a,b,h_mat_K[ij2intindex(a,b)]);
+                int ab = ij2intindex(a,b);
+                gsl_matrix_set(J,a,b,h_mat_J[ab]);
+                gsl_matrix_set(K,a,b,h_mat_K[ab]);
             }
         }
 
@@ -673,7 +679,37 @@ int main(int argc, char* argv[])
     }
 
 
-    //====== free allocated memories ========
+    //====== free device memories ========
+
+    cudaFree(dev_xlec);
+    cudaFree(dev_mat_scale);
+
+    cudaFree(dev_mat_D);
+    cudaFree(dev_mat_Q);
+    cudaFree(dev_mat_J_PI);
+    cudaFree(dev_mat_K_PI);
+
+    cudaFree(dev_idx_CI);
+    cudaFree(dev_idx_PI);
+
+
+    //====== free host memories ========
+
+    free(h_xlec);
+    free(h_mat_scale);
+
+    free(h_mat_D);
+    free(h_mat_Q);
+    free(h_mat_J_PI);
+    free(h_mat_K_PI);
+    free(h_mat_J);
+    free(h_mat_K);
+
+    free(start_contr);
+    free(end_contr);
+
+    free(h_idx_CI);
+    free(h_idx_PI);
 
     // free DIIS error and Fock matrices
     for (idiis = 0; idiis < MAX_DIIS_DIM; ++ idiis)
