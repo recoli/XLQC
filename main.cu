@@ -532,7 +532,8 @@ int main(int argc, char* argv[])
 
         // when iter > 0, use incremental Fock matrix formation and DIIS
         int use_incr_fock = iter;
-        int use_diis      = iter;
+        int use_diis = 0;
+        if (p_basis->num > 5) { use_diis = iter; } // sometimes DIIS does not work well
 
 
         // timer for J-matrix
