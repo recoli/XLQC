@@ -22,8 +22,6 @@ void* my_malloc(size_t bytes);
 
 void* my_malloc_2(size_t bytes, std::string word);
 
-void* my_realloc(void* ptr, size_t bytes);
-
 // combination index
 int ij2intindex(int i, int j);
 
@@ -36,18 +34,22 @@ int get_natoms(void);
 // read geometry
 void read_geom(Atom *p_atom);
 
+// calculate nuclear repulsion energy
 double calc_ene_nucl(Atom *p_atom);
 
-// parse basis set
-// get number of basis functions
+// parse basis set; get number of basis functions
 void parse_basis(Atom *p_atom, Basis *p_basis, int use_5d);
 
 // read the full basis set created by parse_basis
 void read_basis(Atom *p_atom, Basis *p_basis, int use_5d);
 
+// print the basis set
 void print_basis(Basis *p_basis);
 
+// calculate one-electron integrals
 double calc_int_overlap(Basis *p_basis, int a, int b);
 double calc_int_kinetic(Basis *p_basis, int a, int b);
 double calc_int_nuc_attr(Basis *p_basis, int a, int b, Atom *p_atom);
+
+// calculate two-electron integrals
 double calc_int_eri_rys(Basis *p_basis, int a, int b, int c, int d);

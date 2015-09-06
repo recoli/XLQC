@@ -35,7 +35,6 @@
 
 #include "int_lib/cints.h"
 #include "int_lib/crys.h"
-#include "int_lib/chgp.h"
 
 #include "typedef.h"
 #include "basis.h"
@@ -64,8 +63,7 @@ int main(int argc, char* argv[])
 
     // initialize timer
     clock_t t0, t1;
-    double  time_in_sec, time_total;
-    double  time_mat_J, time_mat_K;
+    double  time_in_sec, time_total, time_mat_J, time_mat_K;
 
     t0 = clock();
     std::string time_txt ("");
@@ -75,6 +73,7 @@ int main(int argc, char* argv[])
 
     Atom   *p_atom   = (Atom *)my_malloc(sizeof(Atom) * 1);
     Basis  *p_basis  = (Basis *)my_malloc(sizeof(Basis) * 1);
+
 
     //====== parse geom.dat ========
 
@@ -146,17 +145,15 @@ int main(int argc, char* argv[])
     time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
     time_txt += "Time_Basis    = " + std::to_string(time_in_sec) + " sec\n";
     time_total += time_in_sec;
+    t0 = t1;
 
 
-    //====== one- and two-electron integrals ========
+    //====== one-electron integrals ========
 
     // overlap, kinetic energy and nuclear attraction integral
     gsl_matrix *S = gsl_matrix_alloc(p_basis->num, p_basis->num);
     gsl_matrix *T = gsl_matrix_alloc(p_basis->num, p_basis->num);
     gsl_matrix *V = gsl_matrix_alloc(p_basis->num, p_basis->num);
-
-    // two-electron ingetral
-    int n_combi = p_basis->num * (p_basis->num + 1) / 2;
 
     for (int a = 0; a < p_basis->num; ++ a)
     {
@@ -184,10 +181,11 @@ int main(int argc, char* argv[])
         }
     }
 
-    t0 = clock();
-    time_in_sec = (t0 - t1) / (double)CLOCKS_PER_SEC;
+    t1 = clock();
+    time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
     time_txt += "Time_1e_Ints  = " + std::to_string(time_in_sec) + " sec\n";
     time_total += time_in_sec;
+    t0 = t1;
 
 
     //====== allocate memory for arrays on host ========
@@ -239,8 +237,10 @@ int main(int argc, char* argv[])
     assert(counter == n_pbf * 8);
 
 
-    // CI:  contracted integrals
-    size_t n_CI_bytes     = sizeof(double) * n_combi;
+    // number of unique pairs of contracted basis functions
+    int n_combi = p_basis->num * (p_basis->num + 1) / 2;
+
+    size_t n_CI_bytes = sizeof(double) * n_combi;
 
     // D: density matrix
     // J: Coulomb matrix
@@ -251,11 +251,6 @@ int main(int argc, char* argv[])
     double *h_mat_K = (double *)my_malloc(n_CI_bytes);
     double *h_mat_Q = (double *)my_malloc(n_CI_bytes);
 
-    t1 = clock();
-    time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
-    time_txt += "Time_2e_Prep  = " + std::to_string(time_in_sec) + " sec\n";
-    time_total += time_in_sec;
-
 
     //====== allocate memory for arrays on device ========
 
@@ -264,7 +259,7 @@ int main(int argc, char* argv[])
     int    *dev_pbf_to_cbf;
     double *dev_mat_D, *dev_mat_Q, *dev_mat_J_PI, *dev_mat_K_PI;
 
-    // allocate memories for arrays on device
+    // memory usage on device
     size_t mem_on_dev = n_PBF_bytes*8 + n_PBF_bytes_int + n_PI_bytes*2 + n_CI_bytes*2;
     fprintf(stdout, "Mem_on_Device = ");
     if   (mem_on_dev > 1000000000) { fprintf(stdout, "%zu GB\n", mem_on_dev / 1000000000); }
@@ -272,6 +267,7 @@ int main(int argc, char* argv[])
     else if (mem_on_dev > 1000)    { fprintf(stdout, "%zu KB\n", mem_on_dev / 1000); }
     else                           { fprintf(stdout, "%zu B\n",  mem_on_dev); }
 
+    // allocate memories for arrays on device
     my_cuda_safe(cudaMalloc((void**)&dev_pbf_xlec,    n_PBF_bytes * 8),"alloc_pbf_xlec");
     my_cuda_safe(cudaMalloc((void**)&dev_pbf_to_cbf,  n_PBF_bytes_int),"alloc_pbf_to_cbf");
     my_cuda_safe(cudaMalloc((void**)&dev_mat_J_PI, n_PI_bytes),"alloc_mat_J_PI");
@@ -286,23 +282,22 @@ int main(int argc, char* argv[])
     my_cuda_safe(cudaMemcpy(dev_pbf_to_cbf, h_pbf_to_cbf, n_PBF_bytes_int, cudaMemcpyHostToDevice),"mem_pbf_to_cbf");
 
 
-    t0 = clock();
-    time_in_sec = (t0 - t1) / (double)CLOCKS_PER_SEC;
-    //time_txt += "Time_2e_GPU   = " + std::to_string(time_in_sec) + " sec\n";
+    t1 = clock();
+    time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
+    time_txt += "Time_2e_Prep  = " + std::to_string(time_in_sec) + " sec\n";
     time_total += time_in_sec;
+    t0 = t1;
 
 
     //====== start SCF calculation ========
 
     // NOTE: assume zero charge and closed-shell electronics structure
     int n_elec = 0;
-    for (int iatom = 0; iatom < p_atom->num; ++ iatom)
-    {
+    for (int iatom = 0; iatom < p_atom->num; ++ iatom) {
         n_elec += p_atom->nuc_chg[iatom];
     }
 
-    if (n_elec % 2 != 0)
-    {
+    if (n_elec % 2 != 0) {
         fprintf(stderr, "Error: Number of electrons (%d) is not even!\n", n_elec);
     }
 
@@ -326,11 +321,16 @@ int main(int argc, char* argv[])
 #endif
 
     // matrices, vector and variables to be used in SCF
-    gsl_matrix *D_prev = gsl_matrix_alloc(p_basis->num, p_basis->num);
-    gsl_matrix *Fock   = gsl_matrix_alloc(p_basis->num, p_basis->num);
-    gsl_matrix *Coef   = gsl_matrix_alloc(p_basis->num, p_basis->num);
     gsl_matrix *D      = gsl_matrix_alloc(p_basis->num, p_basis->num);
+    gsl_matrix *D_prev = gsl_matrix_alloc(p_basis->num, p_basis->num);
+    gsl_matrix *D_diff = gsl_matrix_alloc(p_basis->num, p_basis->num);
+
+    gsl_matrix *Fock      = gsl_matrix_alloc(p_basis->num, p_basis->num);
+    gsl_matrix *Fock_prev = gsl_matrix_alloc(p_basis->num, p_basis->num);
+
+    gsl_matrix *Coef   = gsl_matrix_alloc(p_basis->num, p_basis->num);
     gsl_vector *emo    = gsl_vector_alloc(p_basis->num);
+
     double ene_elec, ene_total, ene_prev;
 
     // Coulomb(J) and exchange(K) matrices
@@ -348,10 +348,7 @@ int main(int argc, char* argv[])
     Fock_to_Coef(p_basis->num, Fock, S_invsqrt, Coef, emo);
     Coef_to_Dens(p_basis->num, n_occ, Coef, D_prev);
 
-    gsl_matrix *D_diff = gsl_matrix_alloc(p_basis->num, p_basis->num);
     gsl_matrix_memcpy(D_diff, D_prev);
-
-    gsl_matrix *Fock_prev = gsl_matrix_alloc(p_basis->num, p_basis->num);
     gsl_matrix_memcpy(Fock_prev, Fock);
 
 
@@ -385,26 +382,28 @@ int main(int argc, char* argv[])
             h_mat_Q[ij2intindex(a,b)] = calc_int_eri_rys(p_basis, a, b, a, b);
         }
     }
-
     my_cuda_safe(cudaMemcpy(dev_mat_Q, h_mat_Q, n_CI_bytes, cudaMemcpyHostToDevice),"mem_Q");
+
 
     t1 = clock();
     time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
     time_txt += "Time_SCF_Init = " + std::to_string(time_in_sec) + " sec\n";
     time_total += time_in_sec;
+    t0 = t1;
 
 
     // start SCF iterations
     int iter = 0;
     while (1)
     {
-        // SCF procedure:
-        // Form new Fock matrix
-        // F' = S^-1/2 * F * S^-1/2
-        // diagonalize F' matrix to get C'
-        // C = S^-1/2 * C'
-        // compute new density matrix
-
+        /*------------------------------------*
+         * SCF procedure:
+         * Form new Fock matrix
+         * F' = S^-1/2 * F * S^-1/2
+         * diagonalize F' matrix to get C'
+         * C = S^-1/2 * C'
+         * compute new density matrix 
+         *------------------------------------*/
 
         // when iter > 0, use incremental Fock matrix formation and DIIS
         int use_incr_fock = iter;
@@ -425,7 +424,7 @@ int main(int argc, char* argv[])
         // create 8x8 thread blocks
         dim3 block_size(BLOCKSIZE,BLOCKSIZE);
  
-        // configure a two dimensional grid as well
+        // configure a two dimensional grid
         dim3 grid_size(n_pbf,n_pbf);
 
 
@@ -442,12 +441,12 @@ int main(int argc, char* argv[])
                 (dev_pbf_xlec, dev_pbf_to_cbf, n_pbf, dev_mat_D, dev_mat_J_PI, dev_mat_Q);
         }
 
-        my_cuda_safe(cudaMemcpy(h_mat_J_PI, dev_mat_J_PI, n_PI_bytes, 
-            cudaMemcpyDeviceToHost),"mem_mat_J_PI");
+        my_cuda_safe(cudaMemcpy(h_mat_J_PI, dev_mat_J_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_mat_J_PI");
 
         t3 = clock();
         time_in_sec = (t3 - t2) / (double)CLOCKS_PER_SEC;
         time_mat_J += time_in_sec;
+        t2 = t3;
 
 
         if (use_dp) {
@@ -458,21 +457,22 @@ int main(int argc, char* argv[])
                 (dev_pbf_xlec, dev_pbf_to_cbf, n_pbf, dev_mat_D, dev_mat_K_PI, dev_mat_Q);
         }
 
-        my_cuda_safe(cudaMemcpy(h_mat_K_PI, dev_mat_K_PI, n_PI_bytes, 
-            cudaMemcpyDeviceToHost),"mem_mat_J_PI");
+        my_cuda_safe(cudaMemcpy(h_mat_K_PI, dev_mat_K_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_mat_K_PI");
 
-        t2 = clock();
-        time_in_sec = (t2 - t3) / (double)CLOCKS_PER_SEC;
+        t3 = clock();
+        time_in_sec = (t3 - t2) / (double)CLOCKS_PER_SEC;
         time_mat_K += time_in_sec;
+        t2 = t3;
 
 
         // sum up primitive J and K matrices to contracted ones
-        for (int a = 0; a < p_basis->num; ++ a)
-            for (int b = 0; b < p_basis->num; ++ b)
-            {
-                h_mat_J[ij2intindex(a,b)] = 0.0;
-                h_mat_K[ij2intindex(a,b)] = 0.0;
+        for (int a = 0; a < p_basis->num; ++ a) {
+            for (int b = 0; b <= a; ++ b) {
+                int ab = ij2intindex(a,b);
+                h_mat_J[ab] = 0.0;
+                h_mat_K[ab] = 0.0;
             }
+        }
 
         for (int i = 0; i < n_pbf; ++ i)
         {
@@ -481,13 +481,14 @@ int main(int argc, char* argv[])
             {
                 int b = h_pbf_to_cbf[j];
                 if (a < b) { continue; }
-                int ab = ij2intindex(a,b);
 
+                int ab = ij2intindex(a,b);
                 int ij = ij2intindex(i,j);
                 h_mat_J[ab] += h_mat_J_PI[ij];
                 h_mat_K[ab] += h_mat_K_PI[ij];
             }
         }
+
 
         // use J and K matrix from GPU
         for (int a = 0; a < p_basis->num; ++ a) {
@@ -569,10 +570,12 @@ int main(int argc, char* argv[])
     // SCF converged
     fprintf(stdout, "SCF converged! E_total = %20.10f\n", ene_total);
 
-    t0 = clock();
-    time_in_sec = (t0 - t1) / (double)CLOCKS_PER_SEC;
+
+    t1 = clock();
+    time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
     time_txt += "Time_SCF_Conv = " + std::to_string(time_in_sec) + " sec\n";
     time_total += time_in_sec;
+    t0 = t1;
 
 
     // print MO information
@@ -680,7 +683,7 @@ int main(int argc, char* argv[])
     time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
     time_txt += "Time_Finalize = " + std::to_string(time_in_sec) + " sec\n";
     time_total += time_in_sec;
-
+    t0 = t1;
 
     std::cout << time_txt;
     std::cout << "Total time used " << time_total << " sec\n";

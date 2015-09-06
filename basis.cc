@@ -30,7 +30,6 @@
 #include "typedef.h"
 #include "int_lib/cints.h"
 #include "int_lib/crys.h"
-#include "int_lib/chgp.h"
 
 //=======================================
 // allocate memory with failure checking
@@ -49,7 +48,10 @@ void* my_malloc(size_t bytes)
 void* my_malloc_2(size_t bytes, std::string word)
 {
     void* ptr = malloc(bytes);
+
+#ifdef DEBUG
     fprintf(stdout, "size of alloc (%s) = %zu MB\n", word.c_str(), bytes / 1000000);
+#endif
 
     if(ptr == NULL) 
     {
@@ -57,18 +59,6 @@ void* my_malloc_2(size_t bytes, std::string word)
         exit(1);
     } 
     return ptr;
-}
-
-void* my_realloc(void* ptr, size_t bytes) 
-{
-    void* new_ptr = NULL;
-    new_ptr = realloc(ptr, bytes);
-    if(NULL == new_ptr) 
-    {
-        fprintf(stderr, "Error: could not re-allocate memory!\n");
-        exit(1);
-    } 
-    return new_ptr;
 }
 
 //=============================
@@ -185,6 +175,9 @@ void read_geom(Atom *p_atom)
     }
 }
 
+//================================
+// nuclear repulsion energy
+//================================
 double calc_ene_nucl(Atom *p_atom)
 {
     double ene_nucl = 0.0;
@@ -612,6 +605,9 @@ void read_basis(Atom *p_atom, Basis *p_basis, int use_5d)
     }
 }
 
+//================================
+// print the basis set
+//================================
 void print_basis(Basis *p_basis)
 {
     int ibasis;
@@ -632,6 +628,9 @@ void print_basis(Basis *p_basis)
     }
 }
 
+//================================
+// overlap integral
+//================================
 double calc_int_overlap(Basis *p_basis, int a, int b)
 {
     double s;
@@ -648,6 +647,9 @@ double calc_int_overlap(Basis *p_basis, int a, int b)
     return s;
 }
 
+//================================
+// kinetic energy integral
+//================================
 double calc_int_kinetic(Basis *p_basis, int a, int b)
 {
     double t;
@@ -664,6 +666,9 @@ double calc_int_kinetic(Basis *p_basis, int a, int b)
     return t;
 }
 
+//=======================================
+// nulcear-electron attraction integral
+//=======================================
 double calc_int_nuc_attr(Basis *p_basis, int a, int b, Atom *p_atom)
 {
     double v;
@@ -682,6 +687,9 @@ double calc_int_nuc_attr(Basis *p_basis, int a, int b, Atom *p_atom)
     return v;
 }
 
+//===========================
+// two-electron integrals
+//===========================
 double calc_int_eri_rys(Basis *p_basis, int a, int b, int c, int d)
 {
     double eri;

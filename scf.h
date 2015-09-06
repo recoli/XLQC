@@ -17,9 +17,6 @@
  of this software, even if advised of the possibility of such damage.
  *****************************************************************************/
 
-// copy the content of a matrix
-void mat_mem_cpy(int DIM, double **A, double **B);
-
 // matrix inner product
 double mat_inn_prod(int DIM, double **A, double **B);
 
@@ -50,9 +47,6 @@ void Coef_to_Dens(int nbasis, int n_occ, gsl_matrix *Coef, gsl_matrix *D);
 double get_elec_ene(int nbasis, gsl_matrix *D, gsl_matrix *H_core, 
                     gsl_matrix *Fock);
 
-// form G matrix
-void form_JK(int nbasis, gsl_matrix *D_prev, double *ERI, gsl_matrix *J, gsl_matrix *K);
-
 // form Fock matrix
 void form_Fock(int nbasis, gsl_matrix *H_core, gsl_matrix *J, gsl_matrix *K, gsl_matrix *Fock);
 
@@ -63,9 +57,3 @@ void init_guess_GWH(Basis *p_basis, gsl_matrix *H_core, gsl_matrix *S, gsl_matri
 void update_Fock_DIIS(int *p_diis_dim, int *p_diis_index, double *p_delta_DIIS, 
                       gsl_matrix *Fock, gsl_matrix *D_prev, gsl_matrix *S, Basis *p_basis,
                       double ***diis_err, double ***diis_Fock);
-
-// direct SCF
-void direct_form_G(Basis *p_basis, gsl_matrix *D_prev, gsl_matrix *Q, gsl_matrix *G);
-
-// sqrt(ab|ab) for prescreening 
-void form_Q(Basis *p_basis, gsl_matrix *Q);
