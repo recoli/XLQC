@@ -50,12 +50,10 @@ __device__ double cuda_rys_coulomb_repulsion_dp(double xa,double ya,double za,do
                                                 double xd,double yd,double zd,double normd,
                                                 int ld,int md,int nd,double alphad);
 
-__device__ double cuda_rys_coulomb_repulsion_dp(double *xlec, int ij16, int kl16);
+__device__ double cuda_rys_pbf_dp(double *ptr_i, double *ptr_j, double *ptr_k, double *ptr_l);
 
-__global__ void cuda_mat_J_PI_dp(double *xlec, int n_combi, int n_prim_combi,
-                                double *mat_D, double *mat_J_PI, double *mat_Q, 
-                                int *idx_CI, int *mat_scale);
+__global__ void cuda_mat_J_PI_dp(double *pbf_xlec, int *pbf_to_cbf, int n_pbf,
+                                 double *mat_D, double *mat_J_PI, double *mat_Q);
 
-__global__ void cuda_mat_K_PI_dp(double *xlec, int n_combi, int n_prim_basis,
-                                 double *mat_D, double *mat_K_PI, double *mat_Q, 
-                                 int *idx_PI, int *idx_CI);
+__global__ void cuda_mat_K_PI_dp(double *pbf_xlec, int *pbf_to_cbf, int n_pbf,
+                                 double *mat_D, double *mat_K_PI, double *mat_Q);

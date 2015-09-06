@@ -24,9 +24,8 @@
 
 #include <string>
 
-#include "cuda_rys_sp.h"
-//#include "cuda_rys_dp.h"
 #include "typedef.h"
+#include "cuda_rys_sp.h"
 
 void my_cuda_safe(cudaError_t err, std::string word)
 {
@@ -1453,44 +1452,46 @@ __device__ float cuda_Int1d(int i, int j, int k, int l,
   return ijkl;
 }
 
-__device__ float cuda_rys_coulomb_repulsion(double *xlec, int ij16, int kl16)
+
+// calculate ERI over 4 primitive basis functions
+__device__ float cuda_rys_pbf(double *ptr_i, double *ptr_j, double *ptr_k, double *ptr_l)
 {
   // download xyz, lmn, expon, and coef*norm
-  float xa = (float)xlec[ij16 + 0];
-  float ya = (float)xlec[ij16 + 1];
-  float za = (float)xlec[ij16 + 2];
-  int   la = (int)xlec[ij16 + 3];
-  int   ma = (int)xlec[ij16 + 4];
-  int   na = (int)xlec[ij16 + 5];
-  float alphaa = (float)xlec[ij16 + 6];
-  float norma  = (float)xlec[ij16 + 7];
+  float xa = (float)ptr_i[0];
+  float ya = (float)ptr_i[1];
+  float za = (float)ptr_i[2];
+  int   la = (int)ptr_i[3];
+  int   ma = (int)ptr_i[4];
+  int   na = (int)ptr_i[5];
+  float alphaa = (float)ptr_i[6];
+  float norma  = (float)ptr_i[7];
 
-  float xb = (float)xlec[ij16 + 8];
-  float yb = (float)xlec[ij16 + 9];
-  float zb = (float)xlec[ij16 + 10];
-  int   lb = (int)xlec[ij16 + 11];
-  int   mb = (int)xlec[ij16 + 12];
-  int   nb = (int)xlec[ij16 + 13];
-  float alphab = (float)xlec[ij16 + 14];
-  float normb  = (float)xlec[ij16 + 15];
+  float xb = (float)ptr_j[0];
+  float yb = (float)ptr_j[1];
+  float zb = (float)ptr_j[2];
+  int   lb = (int)ptr_j[3];
+  int   mb = (int)ptr_j[4];
+  int   nb = (int)ptr_j[5];
+  float alphab = (float)ptr_j[6];
+  float normb  = (float)ptr_j[7];
 
-  float xc = (float)xlec[kl16 + 0];
-  float yc = (float)xlec[kl16 + 1];
-  float zc = (float)xlec[kl16 + 2];
-  int   lc = (int)xlec[kl16 + 3];
-  int   mc = (int)xlec[kl16 + 4];
-  int   nc = (int)xlec[kl16 + 5];
-  float alphac = (float)xlec[kl16 + 6];
-  float normc  = (float)xlec[kl16 + 7];
+  float xc = (float)ptr_k[0];
+  float yc = (float)ptr_k[1];
+  float zc = (float)ptr_k[2];
+  int   lc = (int)ptr_k[3];
+  int   mc = (int)ptr_k[4];
+  int   nc = (int)ptr_k[5];
+  float alphac = (float)ptr_k[6];
+  float normc  = (float)ptr_k[7];
 
-  float xd = (float)xlec[kl16 + 8];
-  float yd = (float)xlec[kl16 + 9];
-  float zd = (float)xlec[kl16 + 10];
-  int   ld = (int)xlec[kl16 + 11];
-  int   md = (int)xlec[kl16 + 12];
-  int   nd = (int)xlec[kl16 + 13];
-  float alphad = (float)xlec[kl16 + 14];
-  float normd  = (float)xlec[kl16 + 15];
+  float xd = (float)ptr_l[0];
+  float yd = (float)ptr_l[1];
+  float zd = (float)ptr_l[2];
+  int   ld = (int)ptr_l[3];
+  int   md = (int)ptr_l[4];
+  int   nd = (int)ptr_l[5];
+  float alphad = (float)ptr_l[6];
+  float normd  = (float)ptr_l[7];
 
   // calculate primitive integral [ij|kl]
   int norder,i;
@@ -1544,109 +1545,123 @@ __device__ float cuda_rys_coulomb_repulsion(double *xlec, int ij16, int kl16)
 }
 
 
-__global__ void cuda_mat_J_PI(double *xlec, int n_combi, int n_prim_combi,
-                              double *mat_D, double *mat_J_PI, double *mat_Q, 
-                              int *idx_CI, int *mat_scale)
+// calculate J matrix using 1-thread-1-primitive-integral scheme
+__global__ void cuda_mat_J_PI(double *pbf_xlec, int *pbf_to_cbf, int n_pbf,
+                              double *mat_D, double *mat_J_PI, double *mat_Q)
 {
     __shared__ double elem_J_PI[BLOCKSIZE][BLOCKSIZE];
 
-    int thread_i = threadIdx.x;
-    int thread_k = threadIdx.y;
+    // each block scans over [ij|??] and sum up to a primitive J matrix element
+    int i = blockIdx.x;
+    int j = blockIdx.y;
 
-    // do the usual computation separately in each dimension:
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int idx_i = idx_CI[i];
+    // avoid accessing out of bounds elements and make use of i<=>j symmetry
+    if (i >= n_pbf || j > i) { return; }
 
-    // avoid accessing out of bounds elements
-    if (i >= n_prim_combi) { return; }
+    int ij = cuda_ij2intindex(i,j);
 
-    //int this_k = blockIdx.y * blockDim.y + threadIdx.y;
-    //if (this_k >= BLOCKSIZE) { return; }
+    double *ptr_i = &pbf_xlec[i * 8];
+    double *ptr_j = &pbf_xlec[j * 8];
+
+    int a = pbf_to_cbf[i];
+    int b = pbf_to_cbf[j];
+    int ab = cuda_ij2intindex(a,b);
 
     // initialize shared array
-    elem_J_PI[thread_i][thread_k] = 0.0;
+    elem_J_PI[threadIdx.x][threadIdx.y] = 0.0;
 
-    int i16 = i * 16;
-
-    for (int k = thread_k; k < n_prim_combi; k += BLOCKSIZE)
+    for (int k = threadIdx.x; k < n_pbf; k += BLOCKSIZE)
     {
-        int idx_k = idx_CI[k];
+        int c = pbf_to_cbf[k];
+        double *ptr_k = &pbf_xlec[k * 8];
 
-        if (fabs(mat_Q[idx_i] * mat_Q[idx_k] * mat_D[idx_k]) < SCREEN_THR) { continue; }
+        // NOTE: make use of k<=>l symmetry
+        for (int l = threadIdx.y; l <= k; l += BLOCKSIZE)
+        {
+            int d = pbf_to_cbf[l];
+            int cd = cuda_ij2intindex(c,d);
 
-        int k16 = k * 16;
+            // Schwartz screening
+            if (fabs(mat_Q[ab] * mat_Q[cd] * mat_D[cd]) < SCREEN_THR) { continue; }
 
-        double this_eri = cuda_rys_coulomb_repulsion(xlec, i16, k16);
-        
-        // NOTE: mat_scale contains the 2.0 factor for non-diagonal elements
-        elem_J_PI[thread_i][thread_k] += this_eri * mat_D[idx_k] * mat_scale[idx_k];
+            double *ptr_l = &pbf_xlec[l * 8];
+
+            // calculate ERI
+            double this_eri = cuda_rys_pbf(ptr_i, ptr_j, ptr_k, ptr_l);
+
+            // NOTE: doubling for off-diagonal elements of D due to k<=>l symmetry
+            elem_J_PI[threadIdx.x][threadIdx.y] += this_eri * mat_D[cd] * (k == l ? 1.0 : 2.0);
+        }
     }
 
     __syncthreads();
 
-    if (0 == thread_k)
+    // only update mat_J_PI on one thread of the block
+    if (0 == threadIdx.x && 0 == threadIdx.y)
     {
-        mat_J_PI[i] = 0.0; 
-        for (int t = 0; t < BLOCKSIZE; ++ t)
-        {
-            mat_J_PI[i] += elem_J_PI[thread_i][t];
+        mat_J_PI[ij] = 0.0; 
+        for (int t1 = 0; t1 < BLOCKSIZE; ++ t1) {
+            for (int t2 = 0; t2 < BLOCKSIZE; ++ t2) {
+                mat_J_PI[ij] += elem_J_PI[t1][t2];
+            }
         }
     }
 }
 
 
-__global__ void cuda_mat_K_PI(double *xlec, int n_combi, int n_prim_basis,
-                              double *mat_D, double *mat_K_PI, double *mat_Q, 
-                              int *idx_PI, int *idx_CI)
+// calculate K matrix using 1-thread-1-primitive-integral scheme
+__global__ void cuda_mat_K_PI(double *pbf_xlec, int *pbf_to_cbf, int n_pbf,
+                              double *mat_D, double *mat_K_PI, double *mat_Q)
 {
     __shared__ double elem_K_PI[BLOCKSIZE][BLOCKSIZE];
 
-    // do the usual computation separately in each dimension:
+    // each block scans over [i?|k?] and sum up to a primitive K matrix element
     int i = blockIdx.x;
     int k = blockIdx.y;
 
-    int thread_j = threadIdx.x;
-    int thread_l = threadIdx.y;
+    // avoid accessing out of bounds elements and make use of ij<=>kl symmetry
+    if (i >= n_pbf || k > i) { return; }
 
-    // avoid accessing out of bounds elements
-    int ik = idx_PI[i*n_prim_basis+k];
-    if (-1 == ik) { return; }
+    int ik = cuda_ij2intindex(i,k);
+
+    double *ptr_i = &pbf_xlec[i * 8];
+    double *ptr_k = &pbf_xlec[k * 8];
+
+    int a = pbf_to_cbf[i];
+    int c = pbf_to_cbf[k];
 
     // initialize shared array
-    elem_K_PI[thread_j][thread_l] = 0.0;
+    elem_K_PI[threadIdx.x][threadIdx.y] = 0.0;
 
-    for (int j = thread_j; j < n_prim_basis; j += BLOCKSIZE)
+    for (int j = threadIdx.x; j < n_pbf; j += BLOCKSIZE)
     {
-        int ij = idx_PI[i*n_prim_basis+j];
-        if (-1 == ij) { ij = idx_PI[j*n_prim_basis+i]; }
-        int idx_ij = idx_CI[ij];
+        int b = pbf_to_cbf[j];
+        int ab = cuda_ij2intindex(a,b);
+        double *ptr_j = &pbf_xlec[j * 8];
 
-        int ij16 = ij * 16;
-
-        for (int l = thread_l; l < n_prim_basis; l += BLOCKSIZE)
+        for (int l = threadIdx.y; l < n_pbf; l += BLOCKSIZE)
         {
-            int kl = idx_PI[k*n_prim_basis+l];
-            if (-1 == kl) { kl = idx_PI[l*n_prim_basis+k]; }
-            int idx_kl = idx_CI[kl];
+            int d = pbf_to_cbf[l];
+            int cd = cuda_ij2intindex(c,d);
+            int bd = cuda_ij2intindex(b,d);
 
-            int jl = idx_PI[j*n_prim_basis+l];
-            if (-1 == jl) { jl = idx_PI[l*n_prim_basis+j]; }
-            int idx_jl = idx_CI[jl];
+            // Schwartz screening
+            if (fabs(mat_Q[ab] * mat_Q[cd] * mat_D[bd]) < SCREEN_THR) { continue; }
 
-            if (fabs(mat_Q[idx_ij] * mat_Q[idx_kl] * mat_D[idx_jl]) < SCREEN_THR) { continue; }
+            double *ptr_l = &pbf_xlec[l * 8];
 
-            int kl16 = kl * 16;
+            // calculate ERI
+            double this_eri = cuda_rys_pbf(ptr_i, ptr_j, ptr_k, ptr_l);
 
-            double this_eri = cuda_rys_coulomb_repulsion(xlec, ij16, kl16);
-
-            // NOTE: not using 2.0 factor for non-diagonal elements
-            elem_K_PI[thread_j][thread_l] += this_eri * mat_D[idx_jl];
+            // NOTE: no doubling for off-diagonal elements of D
+            elem_K_PI[threadIdx.x][threadIdx.y] += this_eri * mat_D[bd];
         }
     }
 
     __syncthreads();
 
-    if (0 == thread_j && 0 == thread_l)
+    // only update mat_K_PI on one thread of the block
+    if (0 == threadIdx.x && 0 == threadIdx.y)
     {
         mat_K_PI[ik] = 0.0; 
         for (int t1 = 0; t1 < BLOCKSIZE; ++ t1) {

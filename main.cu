@@ -22,6 +22,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cassert>
 
 #include <string>
 #include <iostream>
@@ -189,102 +190,57 @@ int main(int argc, char* argv[])
     time_total += time_in_sec;
 
 
-    // number of primitive bf
-    int n_prim_basis = 0;
+    //====== allocate memory for arrays on host ========
+
+    // number of primitive basis functions (pbf)
+    int n_pbf = 0;
+    for (int a = 0; a < p_basis->num; ++ a) {
+        n_pbf += p_basis->nprims[a];
+    }
+
+    // number of unique pbf pairs
+    int n_pbf_combi = n_pbf * (n_pbf + 1) / 2;
+
+    size_t n_PBF_bytes  = sizeof(double) * n_pbf;
+    size_t n_PBF_bytes_int = sizeof(int) * n_pbf;
+    size_t n_PI_bytes   = sizeof(double) * n_pbf_combi;
+
+    // pbf_xlec contains information of each pbf: x,y,z, lx,ly,lz, expon, coef*norm
+    // pbf_to_cbf returns index of contracted basis function (cbf) of each pbf
+    double *h_pbf_xlec = (double *)my_malloc(n_PBF_bytes * 8);
+    int  *h_pbf_to_cbf = (int *)my_malloc(n_PBF_bytes_int);
+
+    // mat_J_PI and mat_K_PI are primitive J and K matrices
+    double *h_mat_J_PI = (double *)my_malloc(n_PI_bytes);
+    double *h_mat_K_PI = (double *)my_malloc(n_PI_bytes);
+
+    // counter for pbf_xlec; i_pbf for pbf_to_cbf
+    int counter = 0;
+    int i_pbf = 0;
     for (int a = 0; a < p_basis->num; ++ a) 
     {
-        n_prim_basis += p_basis->nprims[a];
-    }
-
-    size_t n_PF2_bytes_int = sizeof(int) * n_prim_basis * n_prim_basis;
-
-    // idx_PI: an array of dimension n_prim_basis x n_prim_basis
-    // returns the index of bra/ket for primitive integrals
-    // returns -1 if the combination is not considered
-    int *h_idx_PI = (int *)my_malloc(n_PF2_bytes_int);
-    for (int i = 0; i < n_prim_basis; ++ i) 
-    {
-        for (int k = 0; k < n_prim_basis; ++ k) 
+        for (int i = 0; i < p_basis->nprims[a]; ++ i)
         {
-            h_idx_PI[i * n_prim_basis + k] = -1;
+            h_pbf_to_cbf[i_pbf] = a; ++ i_pbf;
+
+            h_pbf_xlec[counter] = p_basis->xbas[a]; ++ counter;
+            h_pbf_xlec[counter] = p_basis->ybas[a]; ++ counter;
+            h_pbf_xlec[counter] = p_basis->zbas[a]; ++ counter;
+
+            h_pbf_xlec[counter] = (double)p_basis->lx[a][i]; ++ counter;
+            h_pbf_xlec[counter] = (double)p_basis->ly[a][i]; ++ counter;
+            h_pbf_xlec[counter] = (double)p_basis->lz[a][i]; ++ counter;
+
+            h_pbf_xlec[counter] = p_basis->expon[a][i]; ++ counter;
+            h_pbf_xlec[counter] = p_basis->coef[a][i] * p_basis->norm[a][i]; ++ counter;
+            // note that 'norm' is absorbed into 'coef'
         }
     }
-
-    // number of bra/ket pairs for primitive integrals
-    int n_prim_combi = 0;
-    for (int a = 0; a < p_basis->num; ++ a)
-    {
-        int lena = p_basis->nprims[a];
-
-        int count_prim_a = 0;
-        for (int tmp = 0; tmp < a; ++ tmp)
-        {
-            count_prim_a += p_basis->nprims[tmp];
-        }
-
-        for (int b = 0; b <= a; ++ b)
-        {
-            int lenb = p_basis->nprims[b];
-
-            int count_prim_b = 0;
-            for (int tmp = 0; tmp < b; ++ tmp)
-            {
-                count_prim_b += p_basis->nprims[tmp];
-            }
-        
-            for (int i = 0; i < lena; ++ i)
-            {
-                int ai = count_prim_a + i;
-                for (int j = 0; j < lenb; ++ j)
-                {
-                    int bj = count_prim_b + j;
-
-                    // update idx_PI for bra/ket pairs
-                    h_idx_PI[ai * n_prim_basis + bj] = n_prim_combi;
-
-                    // update number of bra/ket pairs for PI
-                    ++ n_prim_combi;
-                }
-            }
-        }
-    }
+    assert(counter == n_pbf * 8);
 
 
-    // allocate memory for arrays on host
     // CI:  contracted integrals
-    // PI:  primitive integrals
     size_t n_CI_bytes     = sizeof(double) * n_combi;
-    size_t n_CI_bytes_int = sizeof(int)    * n_combi;
-    size_t n_PI_bytes     = sizeof(double) * n_prim_combi;
-    size_t n_PI_bytes_int = sizeof(int)    * n_prim_combi;
-
-
-    // idx_CI: returns the index of CI pair for a PI pair
-    int *h_idx_CI = (int *)my_malloc(n_PI_bytes_int);
-    int i_prim_combi = 0;
-    for (int a = 0; a < p_basis->num; ++ a)
-    {
-        for (int b = 0; b <= a; ++ b)
-        {
-            for (int i = 0; i < p_basis->nprims[a]; ++ i)
-            {
-                for (int j = 0; j < p_basis->nprims[b]; ++ j)
-                {
-                    // update idx_CI for bra/ket pairs
-                    h_idx_CI[i_prim_combi] = ij2intindex(a,b);
-
-                    // update number of bra/ket pairs for PI
-                    ++ i_prim_combi;
-                }
-            }
-        }
-    }
-
-
-    double *h_xlec = (double *)my_malloc(n_PI_bytes * 16);
-
-    int *start_contr = (int *)my_malloc(n_CI_bytes_int);
-    int *end_contr   = (int *)my_malloc(n_CI_bytes_int);
 
     // D: density matrix
     // J: Coulomb matrix
@@ -295,119 +251,39 @@ int main(int argc, char* argv[])
     double *h_mat_K = (double *)my_malloc(n_CI_bytes);
     double *h_mat_Q = (double *)my_malloc(n_CI_bytes);
 
-    // J_PI and K_PI: for 1T1PI computation on GPUs
-    double *h_mat_J_PI = (double *)my_malloc(n_PI_bytes);
-    double *h_mat_K_PI = (double *)my_malloc(n_PI_bytes);
-
-
-    // mat_scale: doubling off-diagonal elements of D
-    // This is convenient for J-matrix formation
-    int *h_mat_scale = (int *)my_malloc(n_CI_bytes_int);
-    for (int a = 0; a < p_basis->num; ++ a) {
-        for (int b = 0; b <= a; ++ b) {
-            h_mat_scale[ij2intindex(a,b)] = (a == b ? 1 : 2);
-        }
-    }
-
-
-    // fill arrays on host
-    // index_prim counts primitive integrals
-    // index_contr counts contracted integrals
-    int index_prim = 0;
-    int index_contr = 0;
-
-    int index_xlec = 0;
-
-    for (int a = 0; a < p_basis->num; ++ a)
-    {
-        int lena = p_basis->nprims[a];
-        for (int b = 0; b <= a; ++ b)
-        {
-            int lenb = p_basis->nprims[b];
-
-            start_contr[index_contr] = index_prim;
-
-            for (int i = 0; i < lena; ++ i)
-            {
-                for (int j = 0; j < lenb; ++ j)
-                {
-                    h_xlec[index_xlec] = p_basis->xbas[a]; ++ index_xlec;
-                    h_xlec[index_xlec] = p_basis->ybas[a]; ++ index_xlec;
-                    h_xlec[index_xlec] = p_basis->zbas[a]; ++ index_xlec;
-                    h_xlec[index_xlec] = (double)p_basis->lx[a][i]; ++ index_xlec;
-                    h_xlec[index_xlec] = (double)p_basis->ly[a][i]; ++ index_xlec;
-                    h_xlec[index_xlec] = (double)p_basis->lz[a][i]; ++ index_xlec;
-                    h_xlec[index_xlec] = p_basis->expon[a][i]; ++ index_xlec;
-                    h_xlec[index_xlec] = p_basis->coef[a][i] * p_basis->norm[a][i];  ++ index_xlec;
-                    // note that 'anorm' is absorbed into 'acoef'
-
-                    h_xlec[index_xlec] = p_basis->xbas[b]; ++ index_xlec;
-                    h_xlec[index_xlec] = p_basis->ybas[b]; ++ index_xlec;
-                    h_xlec[index_xlec] = p_basis->zbas[b]; ++ index_xlec;
-                    h_xlec[index_xlec] = (double)p_basis->lx[b][j]; ++ index_xlec;
-                    h_xlec[index_xlec] = (double)p_basis->ly[b][j]; ++ index_xlec;
-                    h_xlec[index_xlec] = (double)p_basis->lz[b][j]; ++ index_xlec;
-                    h_xlec[index_xlec] = p_basis->expon[b][j]; ++ index_xlec;
-                    h_xlec[index_xlec] = p_basis->coef[b][j] * p_basis->norm[b][j]; ++ index_xlec;
-                    // note that 'bnorm' is absorbed into 'bcoef'
-
-                    ++ index_prim;
-                }
-            }
-
-            end_contr[index_contr] = index_prim - 1;
-
-            ++ index_contr;
-        }
-    }
-    fprintf(stdout, "Num_Prim_Combi  = %d (%d)\n", index_prim, n_prim_combi);
-    fprintf(stdout, "Num_Contr_Combi = %d (%d)\n", index_contr, n_combi);
-
     t1 = clock();
     time_in_sec = (t1 - t0) / (double)CLOCKS_PER_SEC;
     time_txt += "Time_2e_Prep  = " + std::to_string(time_in_sec) + " sec\n";
     time_total += time_in_sec;
 
 
+    //====== allocate memory for arrays on device ========
+
     // initialize arrays on device
-    double *dev_xlec;
-    int    *dev_mat_scale;
+    double *dev_pbf_xlec;
+    int    *dev_pbf_to_cbf;
     double *dev_mat_D, *dev_mat_Q, *dev_mat_J_PI, *dev_mat_K_PI;
-    int    *dev_idx_CI, *dev_idx_PI;
 
     // allocate memories for arrays on device
-    fprintf(stdout, "Mem_on_Device = %zu MB\n",
-            (n_PI_bytes*18 + n_PI_bytes_int + n_CI_bytes*3 + n_PF2_bytes_int) / 1000000);
+    size_t mem_on_dev = n_PBF_bytes*8 + n_PBF_bytes_int + n_PI_bytes*2 + n_CI_bytes*2;
+    fprintf(stdout, "Mem_on_Device = ");
+    if   (mem_on_dev > 1000000000) { fprintf(stdout, "%zu GB\n", mem_on_dev / 1000000000); }
+    else if (mem_on_dev > 1000000) { fprintf(stdout, "%zu MB\n", mem_on_dev / 1000000); }
+    else if (mem_on_dev > 1000)    { fprintf(stdout, "%zu KB\n", mem_on_dev / 1000); }
+    else                           { fprintf(stdout, "%zu B\n",  mem_on_dev); }
 
-    my_cuda_safe(cudaMalloc((void**)&dev_xlec, n_PI_bytes * 16),"alloc_xlec");
-    my_cuda_safe(cudaMalloc((void**)&dev_mat_scale, n_CI_bytes_int),"alloc_scale");
+    my_cuda_safe(cudaMalloc((void**)&dev_pbf_xlec,    n_PBF_bytes * 8),"alloc_pbf_xlec");
+    my_cuda_safe(cudaMalloc((void**)&dev_pbf_to_cbf,  n_PBF_bytes_int),"alloc_pbf_to_cbf");
+    my_cuda_safe(cudaMalloc((void**)&dev_mat_J_PI, n_PI_bytes),"alloc_mat_J_PI");
+    my_cuda_safe(cudaMalloc((void**)&dev_mat_K_PI, n_PI_bytes),"alloc_mat_K_PI");
 
     my_cuda_safe(cudaMalloc((void**)&dev_mat_D, n_CI_bytes),"alloc_D");
     my_cuda_safe(cudaMalloc((void**)&dev_mat_Q, n_CI_bytes),"alloc_Q");
-    my_cuda_safe(cudaMalloc((void**)&dev_mat_J_PI, n_PI_bytes),"alloc_J_PI");
-    my_cuda_safe(cudaMalloc((void**)&dev_mat_K_PI, n_PI_bytes),"alloc_K_PI");
-
-    my_cuda_safe(cudaMalloc((void**)&dev_idx_CI, n_PI_bytes_int),"alloc_idxCI");
-    my_cuda_safe(cudaMalloc((void**)&dev_idx_PI, n_PF2_bytes_int),"alloc_idxPI");
 
 
     // copy data from host to device
-    my_cuda_safe(cudaMemcpy(dev_xlec, h_xlec, n_PI_bytes * 16, cudaMemcpyHostToDevice),"mem_xlec");
-    my_cuda_safe(cudaMemcpy(dev_mat_scale, h_mat_scale, n_CI_bytes_int, cudaMemcpyHostToDevice),"mem_scale");
-
-    my_cuda_safe(cudaMemcpy(dev_idx_CI, h_idx_CI, n_PI_bytes_int, cudaMemcpyHostToDevice),"mem_idxCI");
-    my_cuda_safe(cudaMemcpy(dev_idx_PI, h_idx_PI, n_PF2_bytes_int, cudaMemcpyHostToDevice),"mem_idxPI");
-
-
-    // create 8x8 thread blocks
-    dim3 block_size;
-    block_size.x = BLOCKSIZE;
-    block_size.y = BLOCKSIZE;
-
-    // configure a two dimensional grid as well
-    dim3 grid_size;
-    //grid_size.x = n_combi / block_size.x + (n_combi % block_size.x ? 1 : 0);
-    //grid_size.y = n_combi / block_size.y + (n_combi % block_size.y ? 1 : 0);
+    my_cuda_safe(cudaMemcpy(dev_pbf_xlec,   h_pbf_xlec,   n_PBF_bytes * 8, cudaMemcpyHostToDevice),"mem_pbf_xlec");
+    my_cuda_safe(cudaMemcpy(dev_pbf_to_cbf, h_pbf_to_cbf, n_PBF_bytes_int, cudaMemcpyHostToDevice),"mem_pbf_to_cbf");
 
 
     t0 = clock();
@@ -536,10 +412,6 @@ int main(int argc, char* argv[])
         if (p_basis->num > 5) { use_diis = iter; } // sometimes DIIS does not work well
 
 
-        // timer for J-matrix
-        clock_t t2,t3;
-        t2 = clock();
-
         // copy density matrix to device
         for (int a = 0; a < p_basis->num; ++ a) {
             for (int b = 0; b <= a; ++ b) {
@@ -549,49 +421,71 @@ int main(int argc, char* argv[])
         }
         my_cuda_safe(cudaMemcpy(dev_mat_D, h_mat_D, n_CI_bytes, cudaMemcpyHostToDevice),"mem_D");
 
-        // use 1T1PI for J-matrix
-        grid_size.x = n_prim_combi / block_size.x + (n_prim_combi % block_size.x ? 1 : 0);
-        grid_size.y = 1;
-    
+
+        // create 8x8 thread blocks
+        dim3 block_size(BLOCKSIZE,BLOCKSIZE);
+ 
+        // configure a two dimensional grid as well
+        dim3 grid_size(n_pbf,n_pbf);
+
+
+        // timer for J and K matrices
+        clock_t t2,t3;
+        t2 = clock();
+
+        // use 1T1PI for J and K matrices
         if (use_dp) {
             cuda_mat_J_PI_dp<<<grid_size, block_size>>>
-                (dev_xlec, n_combi, n_prim_combi, dev_mat_D, dev_mat_J_PI, 
-                 dev_mat_Q, dev_idx_CI, dev_mat_scale);
+                (dev_pbf_xlec, dev_pbf_to_cbf, n_pbf, dev_mat_D, dev_mat_J_PI, dev_mat_Q);
         } else {
             cuda_mat_J_PI<<<grid_size, block_size>>>
-                (dev_xlec, n_combi, n_prim_combi, dev_mat_D, dev_mat_J_PI, 
-                 dev_mat_Q, dev_idx_CI, dev_mat_scale);
+                (dev_pbf_xlec, dev_pbf_to_cbf, n_pbf, dev_mat_D, dev_mat_J_PI, dev_mat_Q);
         }
 
-        my_cuda_safe(cudaMemcpy(h_mat_J_PI, dev_mat_J_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_J_PI");
+        my_cuda_safe(cudaMemcpy(h_mat_J_PI, dev_mat_J_PI, n_PI_bytes, 
+            cudaMemcpyDeviceToHost),"mem_mat_J_PI");
 
         t3 = clock();
         time_in_sec = (t3 - t2) / (double)CLOCKS_PER_SEC;
         time_mat_J += time_in_sec;
 
-        // use 1T1PI for K-matrix
-        grid_size.x = n_prim_basis;
-        grid_size.y = n_prim_basis;
 
         if (use_dp) {
             cuda_mat_K_PI_dp<<<grid_size, block_size>>>
-                (dev_xlec, n_combi, n_prim_basis, dev_mat_D, dev_mat_K_PI, 
-                 dev_mat_Q, dev_idx_PI, dev_idx_CI);
+                (dev_pbf_xlec, dev_pbf_to_cbf, n_pbf, dev_mat_D, dev_mat_K_PI, dev_mat_Q);
         } else {
             cuda_mat_K_PI<<<grid_size, block_size>>>
-                (dev_xlec, n_combi, n_prim_basis, dev_mat_D, dev_mat_K_PI, 
-                 dev_mat_Q, dev_idx_PI, dev_idx_CI);
+                (dev_pbf_xlec, dev_pbf_to_cbf, n_pbf, dev_mat_D, dev_mat_K_PI, dev_mat_Q);
         }
 
-        my_cuda_safe(cudaMemcpy(h_mat_K_PI, dev_mat_K_PI, n_PI_bytes, cudaMemcpyDeviceToHost),"mem_K_PI");
+        my_cuda_safe(cudaMemcpy(h_mat_K_PI, dev_mat_K_PI, n_PI_bytes, 
+            cudaMemcpyDeviceToHost),"mem_mat_J_PI");
 
-        // gather J and K matrices from PI to CI
-        for (int idx_i = 0; idx_i < n_combi; ++ idx_i) {
-            h_mat_J[idx_i] = 0.0;
-            h_mat_K[idx_i] = 0.0;
-            for (int i = start_contr[idx_i]; i <= end_contr[idx_i]; ++ i) {
-                h_mat_K[idx_i] += h_mat_K_PI[i];
-                h_mat_J[idx_i] += h_mat_J_PI[i];
+        t2 = clock();
+        time_in_sec = (t2 - t3) / (double)CLOCKS_PER_SEC;
+        time_mat_K += time_in_sec;
+
+
+        // sum up primitive J and K matrices to contracted ones
+        for (int a = 0; a < p_basis->num; ++ a)
+            for (int b = 0; b < p_basis->num; ++ b)
+            {
+                h_mat_J[ij2intindex(a,b)] = 0.0;
+                h_mat_K[ij2intindex(a,b)] = 0.0;
+            }
+
+        for (int i = 0; i < n_pbf; ++ i)
+        {
+            int a = h_pbf_to_cbf[i];
+            for (int j = 0; j < n_pbf; ++ j)
+            {
+                int b = h_pbf_to_cbf[j];
+                if (a < b) { continue; }
+                int ab = ij2intindex(a,b);
+
+                int ij = ij2intindex(i,j);
+                h_mat_J[ab] += h_mat_J_PI[ij];
+                h_mat_K[ab] += h_mat_K_PI[ij];
             }
         }
 
@@ -603,10 +497,6 @@ int main(int argc, char* argv[])
                 gsl_matrix_set(K,a,b,h_mat_K[ab]);
             }
         }
-
-        t2 = clock();
-        time_in_sec = (t2 - t3) / (double)CLOCKS_PER_SEC;
-        time_mat_K += time_in_sec;
 
 
 #ifdef DEBUG
@@ -701,35 +591,18 @@ int main(int argc, char* argv[])
 
     //====== free device memories ========
 
-    cudaFree(dev_xlec);
-    cudaFree(dev_mat_scale);
-
     cudaFree(dev_mat_D);
     cudaFree(dev_mat_Q);
     cudaFree(dev_mat_J_PI);
     cudaFree(dev_mat_K_PI);
 
-    cudaFree(dev_idx_CI);
-    cudaFree(dev_idx_PI);
-
 
     //====== free host memories ========
 
-    free(h_xlec);
-    free(h_mat_scale);
-
     free(h_mat_D);
     free(h_mat_Q);
-    free(h_mat_J_PI);
-    free(h_mat_K_PI);
     free(h_mat_J);
     free(h_mat_K);
-
-    free(start_contr);
-    free(end_contr);
-
-    free(h_idx_CI);
-    free(h_idx_PI);
 
     // free DIIS error and Fock matrices
     for (idiis = 0; idiis < MAX_DIIS_DIM; ++ idiis)

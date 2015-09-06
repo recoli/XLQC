@@ -47,12 +47,10 @@ __device__ float cuda_Int1d(int i, int j,int k, int l,
                             float inv_t1, float B00, float B1, float B1p, 
                             float G[][MAXROOTS]);
 
-__device__ float cuda_rys_coulomb_repulsion(double *xlec, int ij16, int kl16);
+__device__ float cuda_rys_pbf(double *ptr_i, double *ptr_j, double *ptr_k, double *ptr_l);
 
-__global__ void cuda_mat_J_PI(double *xlec, int n_combi, int n_prim_combi,
-                              double *mat_D, double *mat_J_PI, double *mat_Q, 
-                              int *idx_CI, int *mat_scale);
+__global__ void cuda_mat_J_PI(double *pbf_xlec, int *pbf_to_cbf, int n_pbf,
+                              double *mat_D, double *mat_J_PI, double *mat_Q);
 
-__global__ void cuda_mat_K_PI(double *xlec, int n_combi, int n_prim_basis,
-                              double *mat_D, double *mat_K_PI, double *mat_Q, 
-                              int *idx_PI, int *idx_CI);
+__global__ void cuda_mat_K_PI(double *pbf_xlec, int *pbf_to_cbf, int n_pbf,
+                              double *mat_D, double *mat_K_PI, double *mat_Q);
