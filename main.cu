@@ -536,6 +536,7 @@ int main(int argc, char* argv[])
         double delta_E = ene_total - ene_prev;
 
         double rms_D = 0.0;
+        double dd_max = 0.0;
         int mu, nu;
         for (mu = 0; mu < p_basis->num; ++ mu)
         {
@@ -543,21 +544,22 @@ int main(int argc, char* argv[])
             {
                 double dd = gsl_matrix_get(D, mu, nu) - 
                             gsl_matrix_get(D_prev, mu, nu);
-                rms_D += dd * dd;
 
                 gsl_matrix_set(D_diff, mu, nu, dd);
+
+                rms_D += dd * dd;
+                if (fabs(dd) > dd_max) { dd_max = fabs(dd); }
             }
         }
-        rms_D = sqrt(rms_D);
+        rms_D = sqrt(rms_D) / p_basis->num;
 
         fprintf(stdout, "%5d %20.10f", iter, ene_total);
         if (iter > 0) { fprintf(stdout, " %20.10f %20.10f", delta_E, rms_D); }
-        if (iter > 1) { fprintf(stdout, " %20.10f", delta_DIIS); }
+        if (use_diis && iter > 1) { fprintf(stdout, " %20.10f", delta_DIIS); }
         fprintf(stdout, "\n");
 
         // convergence criteria
-        if (fabs(delta_E) < 1.0e-10 &&
-            rms_D < 1.0e-8 && delta_DIIS < 1.0e-8) { break; }
+        if (fabs(delta_E/ene_total) < 1.0e-9 && rms_D < 1.0e-7 && dd_max < 1.0e-6) { break; }
 
         // update energy and density matrix for the next iteration
         ene_prev = ene_total;
